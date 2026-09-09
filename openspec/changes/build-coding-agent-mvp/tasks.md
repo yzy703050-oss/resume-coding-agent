@@ -31,8 +31,8 @@
 
 ## 6. Model Boundary and ReAct Runner
 
-- [ ] 6.1 Write failing tests for queued actions and usage accounting, then implement `ModelClient` types and `ScriptedModelClient`; verify behavior tests can run without network access.
-- [ ] 6.2 Write failing adapter contract tests using a fake HTTP transport, then implement the OpenAI-compatible client with structured action parsing, secret-safe configuration, and bounded transient retries; verify no live endpoint is required by CI.
+- [x] 6.1 Write failing tests for queued actions and usage accounting, then implement `ModelClient` types and `ScriptedModelClient`; verify behavior tests can run without network access.
+- [x] 6.2 Write failing adapter contract tests using a fake HTTP transport, then implement the OpenAI-compatible client with structured action parsing, secret-safe configuration, and bounded transient retries; verify no live endpoint is required by CI.
 - [ ] 6.3 Write a failing read-edit-test-finish behavior test, then implement the minimal synchronous ReAct loop and event emission; verify the observation from each tool call is present in the next model request.
 - [ ] 6.4 Add failing behavior tests for malformed actions, tool failure recovery, failing-test repair, budget exhaustion, step limits, interruption, and fatal failure; then route every terminal state exactly once through `Finalizer` and verify the runner never writes `AgentFinished` or `AgentFailed` directly.
 
