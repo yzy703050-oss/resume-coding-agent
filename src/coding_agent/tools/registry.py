@@ -37,6 +37,7 @@ class ToolContext:
     base_commit: str
     execution_backend: ExecutionBackend
     event_writer: EventWriter
+    command_timeout_seconds: float = 60
 
 
 class ListFilesInput(BaseModel):
@@ -75,7 +76,7 @@ class RunCommandInput(BaseModel):
     executable: str = Field(min_length=1)
     args: list[str] = Field(default_factory=list)
     cwd: str = "."
-    timeout_seconds: float = Field(default=60, gt=0, le=600)
+    timeout_seconds: float | None = Field(default=None, gt=0, le=600)
     output_limit_bytes: int = Field(default=100_000, ge=1, le=1_000_000)
 
 
@@ -203,7 +204,7 @@ class ToolRegistry:
             args.executable,
             tuple(args.args),
             args.cwd,
-            args.timeout_seconds,
+            args.timeout_seconds or self._context.command_timeout_seconds,
             args.output_limit_bytes,
         )
         return ToolResult(

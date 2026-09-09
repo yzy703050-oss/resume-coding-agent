@@ -38,7 +38,7 @@
 
 ## 7. CLI Vertical Slice
 
-- [ ] 7.1 Write failing CLI tests for required inputs, clean repository checks, limits, model settings, artifact location, and exit codes, then implement dependency composition in Typer; verify a scripted-model CLI run completes end to end.
+- [x] 7.1 Write failing CLI tests for required inputs, clean repository checks, limits, model settings, artifact location, and exit codes, then implement dependency composition in Typer; verify a scripted-model CLI run completes end to end.
 - [ ] 7.2 Add a manual live-model smoke command and secret-safe example configuration without making it part of CI; verify CLI help documents the trusted-repository boundary and all effective limits.
 
 ## 8. Baseline Evaluation
