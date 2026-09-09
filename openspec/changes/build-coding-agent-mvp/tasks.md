@@ -6,9 +6,9 @@
 
 ## 2. Append-only Run Artifacts
 
-- [ ] 2.1 Write failing tests for event envelope validation, contiguous sequence numbers, JSONL append order, and flush behavior, then implement the event model and writer; verify the event unit tests pass.
-- [ ] 2.2 Write failing tests proving configured secrets and oversized payloads are redacted or truncated, then implement payload sanitation; verify no fixture secret appears in event output.
-- [ ] 2.3 Write failing tests proving `Finalizer` is the sole terminal-event owner, rejects repeated invocation, and writes terminal summary plus unified patch for every terminal status; then implement artifact finalization and verify synthetic runs produce self-describing `events.jsonl`, `summary.json`, and `patch.diff`.
+- [x] 2.1 Write failing tests for event envelope validation, contiguous sequence numbers, JSONL append order, and flush behavior, then implement the event model and writer; verify the event unit tests pass.
+- [x] 2.2 Write failing tests proving configured secrets and oversized payloads are redacted or truncated, then implement payload sanitation; verify no fixture secret appears in event output.
+- [x] 2.3 Write failing tests proving `Finalizer` is the sole terminal-event owner, rejects repeated invocation, and writes terminal summary plus unified patch for every terminal status; then implement artifact finalization and verify synthetic runs produce self-describing `events.jsonl`, `summary.json`, and `patch.diff`.
 
 ## 3. Confined Repository Tools
 
