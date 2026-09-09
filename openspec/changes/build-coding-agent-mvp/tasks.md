@@ -22,11 +22,11 @@
 - [x] 4.1 Write failing tests for allowed and blocked executable/argument prefixes, shell metacharacters, and immutable policy configuration, then implement `CommandPolicy`; verify disallowed requests never reach a process launcher.
 - [x] 4.2 Write failing tests for stdout/stderr capture, non-zero exits, working-directory confinement, spawn errors, duration, and output truncation, then implement `LocalExecutionBackend`; verify the execution tests pass on Windows.
 - [x] 4.3 Write a failing process-tree timeout test, then implement timeout termination and cleanup; verify no spawned parent or child process remains after the test.
-- [ ] 4.4 Add `run_command` through the registry and emit command/test events; verify allowed failing tests return observations and blocked commands produce policy observations without crashing.
+- [x] 4.4 Add `run_command` through the registry and emit command/test events; verify allowed failing tests return observations and blocked commands produce policy observations without crashing.
 
 ## 5. Tool Registry and Working Context
 
-- [ ] 5.1 Write failing tests for tool schema exposure, argument validation, unknown tools, normalized operational errors, and call/result events, then implement the immutable six-tool registry; verify all dispatch paths return `ToolResult`.
+- [x] 5.1 Write failing tests for tool schema exposure, argument validation, unknown tools, normalized operational errors, and call/result events, then implement the immutable six-tool registry; verify all dispatch paths return `ToolResult`.
 - [ ] 5.2 Write failing tests for mandatory context sections, path-keyed replacement, most-recent-read ordering, least-recently-read pinned eviction, latest verification retention, deterministic observation ordering, and budget elision; then implement `ContextBuilder` using only character counts and verify repeated inputs produce identical messages within budget.
 
 ## 6. Model Boundary and ReAct Runner
