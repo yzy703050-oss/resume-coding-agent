@@ -9,6 +9,7 @@ htmlcov/
 .env
 .env.*
 .agents/
+.worktrees/
 runs/
 outputs/
 *.egg-info/
