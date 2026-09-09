@@ -1,0 +1,1 @@
+"""Deterministic working-context construction."""

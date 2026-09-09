@@ -27,7 +27,7 @@
 ## 5. Tool Registry and Working Context
 
 - [x] 5.1 Write failing tests for tool schema exposure, argument validation, unknown tools, normalized operational errors, and call/result events, then implement the immutable six-tool registry; verify all dispatch paths return `ToolResult`.
-- [ ] 5.2 Write failing tests for mandatory context sections, path-keyed replacement, most-recent-read ordering, least-recently-read pinned eviction, latest verification retention, deterministic observation ordering, and budget elision; then implement `ContextBuilder` using only character counts and verify repeated inputs produce identical messages within budget.
+- [x] 5.2 Write failing tests for mandatory context sections, path-keyed replacement, most-recent-read ordering, least-recently-read pinned eviction, latest verification retention, deterministic observation ordering, and budget elision; then implement `ContextBuilder` using only character counts and verify repeated inputs produce identical messages within budget.
 
 ## 6. Model Boundary and ReAct Runner
 
