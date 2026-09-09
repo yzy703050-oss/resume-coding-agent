@@ -47,5 +47,5 @@ class CommandPolicy:
 
 def _normalize_executable(executable: str) -> str:
     path = Path(executable)
-    value = path.name if path.parent != Path(".") else executable
+    value = path.stem if path.parent != Path(".") else Path(executable).stem
     return value.casefold()

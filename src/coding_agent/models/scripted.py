@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Sequence
 
 from coding_agent.agent.actions import JsonValue
 from coding_agent.context.builder import Message
@@ -10,7 +11,7 @@ from coding_agent.models.base import ModelResponse
 
 
 class ScriptedModelClient:
-    def __init__(self, responses: list[ModelResponse | BaseException]) -> None:
+    def __init__(self, responses: Sequence[ModelResponse | BaseException]) -> None:
         self._responses = deque(responses)
         self.received_messages: list[list[Message]] = []
         self.received_tool_schemas: list[list[dict[str, JsonValue]]] = []

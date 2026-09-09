@@ -1,0 +1,43 @@
+{
+  "tasks": 3,
+  "successes": 3,
+  "success_rate": 1.0,
+  "results": [
+    {
+      "task_id": "add-regression-test",
+      "success": true,
+      "steps": 3,
+      "tool_counts": {
+        "edit_file": 1,
+        "run_command": 1
+      },
+      "elapsed_ms": 461,
+      "tokens": 1,
+      "cost_usd": null
+    },
+    {
+      "task_id": "change-contract",
+      "success": true,
+      "steps": 3,
+      "tool_counts": {
+        "edit_file": 1,
+        "run_command": 1
+      },
+      "elapsed_ms": 430,
+      "tokens": 1,
+      "cost_usd": null
+    },
+    {
+      "task_id": "off-by-one",
+      "success": true,
+      "steps": 3,
+      "tool_counts": {
+        "edit_file": 1,
+        "run_command": 1
+      },
+      "elapsed_ms": 461,
+      "tokens": 1,
+      "cost_usd": null
+    }
+  ]
+}

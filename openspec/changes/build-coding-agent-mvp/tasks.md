@@ -43,9 +43,9 @@
 
 ## 8. Baseline Evaluation
 
-- [ ] 8.1 Create three tiny task manifests and repository fixtures for a bug fix, test addition, and function-contract change; verify each initial revision fails its independent oracle and each gold state passes it.
-- [ ] 8.2 Write failing tests for fixture setup, independent oracle execution, and metric collection, then implement the local evaluation runner; verify model finish text cannot override a failing oracle.
-- [ ] 8.3 Run all three fixtures with deterministic scripted trajectories and generate baseline artifacts; verify the report includes task success, tests, steps, tool calls, elapsed time, token availability, and cost availability.
+- [x] 8.1 Create three tiny task manifests and repository fixtures for a bug fix, test addition, and function-contract change; verify each initial revision fails its independent oracle and each gold state passes it.
+- [x] 8.2 Write failing tests for fixture setup, independent oracle execution, and metric collection, then implement the local evaluation runner; verify model finish text cannot override a failing oracle.
+- [x] 8.3 Run all three fixtures with deterministic scripted trajectories and generate baseline artifacts; verify the report includes task success, tests, steps, tool calls, elapsed time, token availability, and cost availability.
 
 ## 9. Quality and Scope Verification
 
