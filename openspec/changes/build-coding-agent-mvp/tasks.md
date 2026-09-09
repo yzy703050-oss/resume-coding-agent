@@ -12,10 +12,10 @@
 
 ## 3. Confined Repository Tools
 
-- [ ] 3.1 Write failing Windows-aware tests for absolute paths, traversal, symlinks, and junction escapes, then implement one canonical path-confinement helper; verify all escape attempts fail without filesystem changes.
-- [ ] 3.2 Write failing tests for deterministic ordering, limits, and truncation in `list_files`, `search_code`, and `read_file`, then implement those tools; verify their focused unit tests pass.
-- [ ] 3.3 Write failing tests for unique replacement, absent/duplicate expected text, UTF-8 handling, and explicit file creation, then implement `edit_file`; verify failed edits are atomic and successful edits report the changed path.
-- [ ] 3.4 Write failing tests for clean-tree validation and read-only diff collection, then implement the Git helpers; verify dirty repositories are rejected and `git_diff` returns the expected patch without changing state.
+- [x] 3.1 Write failing Windows-aware tests for absolute paths, traversal, symlinks, and junction escapes, then implement one canonical path-confinement helper; verify all escape attempts fail without filesystem changes.
+- [x] 3.2 Write failing tests for deterministic ordering, limits, and truncation in `list_files`, `search_code`, and `read_file`, then implement those tools; verify their focused unit tests pass.
+- [x] 3.3 Write failing tests for unique replacement, absent/duplicate expected text, UTF-8 handling, and explicit file creation, then implement `edit_file`; verify failed edits are atomic and successful edits report the changed path.
+- [x] 3.4 Write failing tests for clean-tree validation and read-only diff collection, then implement the Git helpers; verify dirty repositories are rejected and `git_diff` returns the expected patch without changing state.
 
 ## 4. Local Command Execution
 
