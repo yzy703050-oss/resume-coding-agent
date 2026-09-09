@@ -39,7 +39,7 @@
 ## 7. CLI Vertical Slice
 
 - [x] 7.1 Write failing CLI tests for required inputs, clean repository checks, limits, model settings, artifact location, and exit codes, then implement dependency composition in Typer; verify a scripted-model CLI run completes end to end.
-- [ ] 7.2 Add a manual live-model smoke command and secret-safe example configuration without making it part of CI; verify CLI help documents the trusted-repository boundary and all effective limits.
+- [x] 7.2 Add a manual live-model smoke command and secret-safe example configuration without making it part of CI; verify CLI help documents the trusted-repository boundary and all effective limits.
 
 ## 8. Baseline Evaluation
 
@@ -49,7 +49,7 @@
 
 ## 9. Quality and Scope Verification
 
-- [ ] 9.1 Run pytest, lint, type checking, and relevant CLI/E2E tests; fix only failures within this OpenSpec change and record the exact successful commands.
-- [ ] 9.2 Inspect the final diff against all four delta specs and confirm no FastAPI, web UI, sandbox, memory, multi-agent, RepoMap, MCP, skills, worktree, multi-strategy, or distributed-execution implementation entered the MVP.
-- [ ] 9.3 Perform a security and architecture review of path confinement, command policy, process cleanup, secret handling, runner size, and dependency direction; add regression tests for every accepted defect before fixing it.
-- [ ] 9.4 Add concise README architecture, safety, local demo, artifact, test, and known-limitations sections; verify a fresh checkout can follow the documented scripted demo without a network key.
+- [x] 9.1 Run pytest, lint, type checking, and relevant CLI/E2E tests; fix only failures within this OpenSpec change and record the exact successful commands.
+- [x] 9.2 Inspect the final diff against all four delta specs and confirm no FastAPI, web UI, sandbox, memory, multi-agent, RepoMap, MCP, skills, worktree, multi-strategy, or distributed-execution implementation entered the MVP.
+- [x] 9.3 Perform a security and architecture review of path confinement, command policy, process cleanup, secret handling, runner size, and dependency direction; add regression tests for every accepted defect before fixing it.
+- [x] 9.4 Add concise README architecture, safety, local demo, artifact, test, and known-limitations sections; verify a fresh checkout can follow the documented scripted demo without a network key.

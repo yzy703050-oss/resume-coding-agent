@@ -11,7 +11,7 @@
         "edit_file": 1,
         "run_command": 1
       },
-      "elapsed_ms": 461,
+      "elapsed_ms": 503,
       "tokens": 1,
       "cost_usd": null
     },
@@ -23,7 +23,7 @@
         "edit_file": 1,
         "run_command": 1
       },
-      "elapsed_ms": 430,
+      "elapsed_ms": 717,
       "tokens": 1,
       "cost_usd": null
     },
@@ -35,7 +35,7 @@
         "edit_file": 1,
         "run_command": 1
       },
-      "elapsed_ms": 461,
+      "elapsed_ms": 558,
       "tokens": 1,
       "cost_usd": null
     }

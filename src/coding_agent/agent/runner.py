@@ -9,8 +9,7 @@ from coding_agent.agent.state import RunState, RunStatus
 from coding_agent.context.builder import ContextBuilder
 from coding_agent.events.artifacts import Finalizer, RunArtifacts
 from coding_agent.events.writer import EventWriter
-from coding_agent.models.base import ModelClient
-from coding_agent.models.openai_compatible import ModelFormatError
+from coding_agent.models.base import ModelClient, ModelFormatError
 from coding_agent.tools.registry import ToolRegistry
 
 
@@ -40,6 +39,7 @@ class AgentRunner:
                 "repository": str(state.repo_root),
                 "base_commit": state.base_commit,
                 "limits": cast(JsonValue, state.limits.model_dump(mode="json")),
+                "configuration": cast(JsonValue, state.effective_config),
             },
         )
         try:

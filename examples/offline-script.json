@@ -1,0 +1,34 @@
+[
+  {
+    "action": {
+      "kind": "tool",
+      "tool": "read_file",
+      "arguments": {"path": "calc.py"}
+    }
+  },
+  {
+    "action": {
+      "kind": "tool",
+      "tool": "edit_file",
+      "arguments": {
+        "path": "calc.py",
+        "operation": "replace",
+        "expected_text": "return a - b",
+        "new_text": "return a + b"
+      }
+    }
+  },
+  {
+    "action": {
+      "kind": "tool",
+      "tool": "run_command",
+      "arguments": {"executable": "python", "args": ["-m", "pytest", "-q"]}
+    }
+  },
+  {
+    "action": {
+      "kind": "finish",
+      "summary": "Fixed add() and ran the tests."
+    }
+  }
+]

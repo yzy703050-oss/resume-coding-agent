@@ -43,6 +43,14 @@ def build_runner(config: RunConfig, model_client: ModelClient | None = None) -> 
     repository = config.repository.resolve(strict=True)
     require_clean_worktree(repository)
     base_commit = current_head(repository)
+    artifact_root = (
+        config.artifacts_dir
+        if config.artifacts_dir is not None
+        else repository.parent / f".{repository.name}-coding-agent-runs"
+    ).resolve()
+    if artifact_root.is_relative_to(repository):
+        raise ValueError("artifact directory must be outside the target repository")
+    model = model_client or _model_from_config(config)
     state = RunState.start(
         repository,
         config.task,
@@ -52,13 +60,17 @@ def build_runner(config: RunConfig, model_client: ModelClient | None = None) -> 
             max_tokens=config.max_tokens,
             max_cost_usd=config.max_cost_usd,
         ),
+        effective_config={
+            "model": config.model,
+            "base_url": config.base_url,
+            "command_timeout_seconds": config.command_timeout_seconds,
+            "context_max_chars": config.context_max_chars,
+            "pinned_max_chars": config.pinned_max_chars,
+            "model_mode": "scripted" if config.script is not None else "live",
+        },
     )
-    run_dir = config.artifacts_dir.resolve() / state.run_id
-    secrets = (
-        {config.api_key.get_secret_value()}
-        if config.api_key is not None
-        else set()
-    )
+    run_dir = artifact_root / state.run_id
+    secrets = {config.api_key.get_secret_value()} if config.api_key is not None else set()
     writer = EventWriter(run_dir / "events.jsonl", state.run_id, secrets=secrets)
     backend = LocalExecutionBackend(repository, CommandPolicy.default())
     tools = ToolRegistry.create(
@@ -70,8 +82,7 @@ def build_runner(config: RunConfig, model_client: ModelClient | None = None) -> 
             command_timeout_seconds=config.command_timeout_seconds,
         )
     )
-    model = model_client or _model_from_config(config)
-    finalizer = Finalizer(writer, lambda: git_diff(repository, base_commit).patch)
+    finalizer = Finalizer(writer, lambda: git_diff(repository, base_commit))
     runner = AgentRunner(
         model,
         ContextBuilder(config.context_max_chars, config.pinned_max_chars),
@@ -93,9 +104,7 @@ def _model_from_config(config: RunConfig) -> ModelClient:
             raise ValueError(f"invalid scripted model file: {error}") from error
     if config.api_key is None:
         raise ValueError("API key is required unless --script is supplied")
-    return OpenAICompatibleClient(
-        config.api_key.get_secret_value(), config.model, config.base_url
-    )
+    return OpenAICompatibleClient(config.api_key.get_secret_value(), config.model, config.base_url)
 
 
 @app.command()
@@ -113,7 +122,7 @@ def run(
     max_tokens: Annotated[int | None, typer.Option("--max-tokens", min=1)] = None,
     timeout: Annotated[float, typer.Option("--timeout", min=0.1, max=600)] = 60,
     context_limit: Annotated[int, typer.Option("--context-limit", min=400)] = 24_000,
-    artifacts_dir: Annotated[Path, typer.Option("--artifacts-dir")] = Path("runs"),
+    artifacts_dir: Annotated[Path | None, typer.Option("--artifacts-dir")] = None,
     script: Annotated[Path | None, typer.Option("--script", help="Offline response script")] = None,
 ) -> None:
     """Run on a trusted repository. Local command execution is not a sandbox."""

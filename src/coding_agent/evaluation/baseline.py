@@ -50,9 +50,7 @@ def _responses(manifest: TaskManifest) -> list[ModelResponse]:
     }
     return [
         edits[manifest.id],
-        _tool(
-            "run_command", executable=sys.executable, args=["-m", "pytest", "-q"]
-        ),
+        _tool("run_command", executable=sys.executable, args=["-m", "pytest", "-q"]),
         ModelResponse(
             action=FinishAction(summary="fixture repaired and independently verified"),
             usage=ModelUsage(input_tokens=1),

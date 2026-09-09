@@ -25,9 +25,7 @@ class ContextBuilder:
         self.max_chars = max_chars
         self.pinned_max_chars = pinned_max_chars
 
-    def build(
-        self, state: RunState, tool_schemas: list[dict[str, JsonValue]]
-    ) -> list[Message]:
+    def build(self, state: RunState, tool_schemas: list[dict[str, JsonValue]]) -> list[Message]:
         system = Message(
             "system",
             "You are a coding agent. Use exactly one supplied tool per step or finish. "
@@ -75,9 +73,11 @@ class ContextBuilder:
                 omitted = True
         if omitted:
             marker = Message("user", "[older observation elided]")
-            while observation_messages and self._length(
-                [*messages, marker, *reversed(observation_messages), *reserved]
-            ) > self.max_chars:
+            while (
+                observation_messages
+                and self._length([*messages, marker, *reversed(observation_messages), *reserved])
+                > self.max_chars
+            ):
                 observation_messages.pop()
             with_marker = [*messages, marker, *reversed(observation_messages), *reserved]
             if self._length(with_marker) <= self.max_chars:

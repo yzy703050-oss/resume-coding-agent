@@ -1,4 +1,5 @@
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,12 @@ import pytest
 from coding_agent.agent.state import RunLimits, RunState, RunStatus
 from coding_agent.events.artifacts import Finalizer
 from coding_agent.events.writer import EventWriter
+
+
+@dataclass(frozen=True)
+class PatchEvidence:
+    patch: str
+    changed_files: tuple[str, ...]
 
 
 def terminal_state(tmp_path: Path, status: RunStatus) -> RunState:
@@ -31,7 +38,10 @@ def test_finalizer_owns_terminal_event_and_all_artifacts(
     state = terminal_state(tmp_path, status)
     writer = EventWriter(run_dir / "events.jsonl", state.run_id)
     writer.append("TaskStarted", {"task": state.task})
-    finalizer = Finalizer(writer, patch_provider=lambda: "diff --git a/a.py b/a.py\n")
+    finalizer = Finalizer(
+        writer,
+        patch_provider=lambda: PatchEvidence("diff --git a/a.py b/a.py\n", ("a.py",)),
+    )
 
     artifacts = finalizer.finalize(state)
 
@@ -50,7 +60,7 @@ def test_finalizer_owns_terminal_event_and_all_artifacts(
 def test_finalizer_rejects_second_call_before_any_rewrite(tmp_path: Path) -> None:
     state = terminal_state(tmp_path, RunStatus.COMPLETED)
     writer = EventWriter(tmp_path / "events.jsonl", state.run_id)
-    finalizer = Finalizer(writer, patch_provider=lambda: "first patch\n")
+    finalizer = Finalizer(writer, patch_provider=lambda: PatchEvidence("first patch\n", ()))
     artifacts = finalizer.finalize(state)
     before = (
         artifacts.events_path.read_bytes(),
@@ -71,6 +81,19 @@ def test_finalizer_rejects_second_call_before_any_rewrite(tmp_path: Path) -> Non
 
 def test_finalizer_requires_terminal_state(tmp_path: Path) -> None:
     state = RunState.start(tmp_path, "fix", "abc123", RunLimits())
-    finalizer = Finalizer(EventWriter(tmp_path / "events.jsonl", state.run_id), lambda: "")
+    finalizer = Finalizer(
+        EventWriter(tmp_path / "events.jsonl", state.run_id), lambda: PatchEvidence("", ())
+    )
     with pytest.raises(ValueError, match="terminal"):
         finalizer.finalize(state)
+
+
+def test_summary_uses_changed_files_from_final_patch_evidence(tmp_path: Path) -> None:
+    state = terminal_state(tmp_path, RunStatus.COMPLETED)
+    writer = EventWriter(tmp_path / "events.jsonl", state.run_id)
+    evidence = PatchEvidence("diff --git a/generated.py b/generated.py\n", ("generated.py",))
+
+    artifacts = Finalizer(writer, lambda: evidence).finalize(state)
+
+    summary = json.loads(artifacts.summary_path.read_text(encoding="utf-8"))
+    assert summary["changed_files"] == ["generated.py"]

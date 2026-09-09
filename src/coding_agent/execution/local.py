@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import signal
 import subprocess
+import sys
 import time
 from contextlib import AbstractContextManager
 from pathlib import Path
@@ -33,9 +34,10 @@ class LocalExecutionBackend:
 
         creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         with _job_context() as job:
+            process: subprocess.Popen[str] | None = None
             try:
                 process = subprocess.Popen(
-                    [request.executable, *request.args],
+                    [_resolved_executable(request.executable), *request.args],
                     cwd=cwd,
                     shell=False,
                     stdout=subprocess.PIPE,
@@ -48,6 +50,9 @@ class LocalExecutionBackend:
                 )
                 job.assign(process)
             except OSError as error:
+                if process is not None:
+                    job.terminate(process)
+                    process.communicate()
                 return self._result(
                     CommandStatus.SPAWN_FAILED, None, "", str(error), started, request
                 )
@@ -61,9 +66,7 @@ class LocalExecutionBackend:
                 except subprocess.TimeoutExpired:
                     process.kill()
                     stdout, stderr = process.communicate()
-                return self._result(
-                    CommandStatus.TIMED_OUT, None, stdout, stderr, started, request
-                )
+                return self._result(CommandStatus.TIMED_OUT, None, stdout, stderr, started, request)
             return self._result(
                 CommandStatus.EXITED, process.returncode, stdout, stderr, started, request
             )
@@ -95,6 +98,12 @@ def _truncate_utf8(value: str, limit: int) -> tuple[str, bool]:
     if len(encoded) <= limit:
         return value, False
     return encoded[:limit].decode("utf-8", errors="ignore"), True
+
+
+def _resolved_executable(executable: str) -> str:
+    if Path(executable).name.casefold() in {"python", "python.exe"}:
+        return sys.executable
+    return executable
 
 
 class _ProcessTree(AbstractContextManager["_ProcessTree"]):

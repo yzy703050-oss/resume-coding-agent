@@ -6,7 +6,7 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Protocol, cast
 
 from coding_agent.agent.actions import JsonValue
 from coding_agent.agent.state import RunState, RunStatus
@@ -20,10 +20,20 @@ class RunArtifacts:
     patch_path: Path
 
 
+class PatchEvidence(Protocol):
+    @property
+    def patch(self) -> str: ...
+
+    @property
+    def changed_files(self) -> tuple[str, ...]: ...
+
+
 class Finalizer:
     """Sole terminal-event owner for one run."""
 
-    def __init__(self, event_writer: EventWriter, patch_provider: Callable[[], str]) -> None:
+    def __init__(
+        self, event_writer: EventWriter, patch_provider: Callable[[], PatchEvidence]
+    ) -> None:
         self._event_writer = event_writer
         self._patch_provider = patch_provider
         self._finalized = False
@@ -35,7 +45,7 @@ class Finalizer:
             raise ValueError("run must be terminal before finalization")
         self._finalized = True
 
-        patch = self._patch_provider()
+        patch_evidence = self._patch_provider()
         event_type = "AgentFinished" if state.status is RunStatus.COMPLETED else "AgentFailed"
         self._event_writer._append_terminal(
             event_type,
@@ -50,8 +60,8 @@ class Finalizer:
         run_dir = self._event_writer.path.parent
         patch_path = run_dir / "patch.diff"
         summary_path = run_dir / "summary.json"
-        patch_path.write_text(patch, encoding="utf-8", newline="\n")
-        summary = self._summary(state)
+        patch_path.write_text(patch_evidence.patch, encoding="utf-8", newline="\n")
+        summary = self._summary(state, patch_evidence.changed_files)
         temporary = summary_path.with_suffix(".json.tmp")
         temporary.write_text(
             json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
@@ -61,7 +71,7 @@ class Finalizer:
         temporary.replace(summary_path)
         return RunArtifacts(self._event_writer.path, summary_path, patch_path)
 
-    def _summary(self, state: RunState) -> dict[str, JsonValue]:
+    def _summary(self, state: RunState, changed_files: tuple[str, ...]) -> dict[str, JsonValue]:
         finished_at = state.finished_at or state.started_at
         elapsed_ms = max(0, int((finished_at - state.started_at).total_seconds() * 1_000))
         latest_test = (
@@ -79,11 +89,12 @@ class Finalizer:
             "task": state.task,
             "repository": {"root": str(state.repo_root), "base_commit": state.base_commit},
             "limits": state.limits.model_dump(mode="json"),
+            "configuration": state.effective_config,
             "usage": usage,
             "elapsed_ms": elapsed_ms,
             "step_count": state.step_count,
             "tool_counts": cast(dict[str, JsonValue], state.tool_counts),
-            "changed_files": cast(list[JsonValue], state.changed_files),
+            "changed_files": cast(list[JsonValue], list(changed_files)),
             "latest_test_result": latest_test,
             "finish_summary": state.finish_summary,
             "artifacts": {

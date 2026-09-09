@@ -8,6 +8,7 @@ __pycache__/
 htmlcov/
 .env
 .env.*
+.agents/
 runs/
 outputs/
 *.egg-info/

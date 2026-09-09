@@ -113,7 +113,9 @@ class Observation(BaseModel):
 
 class RunState:
     @classmethod
-    def start(cls, repo_root: Path, task: str, base_commit: str, limits: RunLimits) -> "RunState": ...
+    def start(
+        cls, repo_root: Path, task: str, base_commit: str, limits: RunLimits
+    ) -> "RunState": ...
     def begin_step(self) -> None: ...
     def add_observation(self, observation: Observation) -> None: ...
     def finish(self, status: RunStatus, reason: str) -> None: ...
@@ -246,7 +248,9 @@ import pytest
 from coding_agent.tools.paths import PathPolicyError, resolve_confined
 
 
-@pytest.mark.parametrize("candidate", ["../outside.txt", "C:/Windows/System32", "\\\\server\\share"])
+@pytest.mark.parametrize(
+    "candidate", ["../outside.txt", "C:/Windows/System32", "\\\\server\\share"]
+)
 def test_resolve_confined_rejects_escape(tmp_path: Path, candidate: str) -> None:
     with pytest.raises(PathPolicyError):
         resolve_confined(tmp_path, candidate)
@@ -449,7 +453,12 @@ git commit -m "feat: add controlled local command execution"
 ```python
 def test_registry_exposes_exact_mvp_tools(registry) -> None:
     assert [schema["name"] for schema in registry.schemas()] == [
-        "list_files", "search_code", "read_file", "edit_file", "run_command", "git_diff"
+        "list_files",
+        "search_code",
+        "read_file",
+        "edit_file",
+        "run_command",
+        "git_diff",
     ]
 
 
@@ -537,10 +546,14 @@ git commit -m "feat: build bounded working context"
 
 ```python
 def test_scripted_client_returns_queued_actions_and_usage() -> None:
-    client = ScriptedModelClient([
-        ModelResponse(action=ToolAction(tool="read_file", arguments={"path": "a.py"}), usage=ModelUsage()),
-        ModelResponse(action=FinishAction(summary="done"), usage=ModelUsage()),
-    ])
+    client = ScriptedModelClient(
+        [
+            ModelResponse(
+                action=ToolAction(tool="read_file", arguments={"path": "a.py"}), usage=ModelUsage()
+            ),
+            ModelResponse(action=FinishAction(summary="done"), usage=ModelUsage()),
+        ]
+    )
     assert client.complete([], []).action.kind == "tool"
     assert client.complete([], []).action.kind == "finish"
 ```
@@ -586,12 +599,20 @@ git commit -m "feat: add testable model boundary"
 
 ```python
 def test_runner_reads_edits_tests_and_finishes(agent_harness) -> None:
-    harness = agent_harness([
-        tool("read_file", path="calc.py"),
-        tool("edit_file", path="calc.py", operation="replace", expected_text="return a-b", new_text="return a+b"),
-        tool("run_command", executable="python", args=["-m", "pytest", "-q"]),
-        finish("fixed and verified"),
-    ])
+    harness = agent_harness(
+        [
+            tool("read_file", path="calc.py"),
+            tool(
+                "edit_file",
+                path="calc.py",
+                operation="replace",
+                expected_text="return a-b",
+                new_text="return a+b",
+            ),
+            tool("run_command", executable="python", args=["-m", "pytest", "-q"]),
+            finish("fixed and verified"),
+        ]
+    )
     result = harness.runner.run(harness.state)
     assert result.status.value == "completed"
     assert result.step_count == 4
@@ -645,7 +666,9 @@ def test_failed_test_becomes_observation_and_can_be_repaired(agent_harness) -> N
 
 
 def test_tool_policy_failure_does_not_crash(agent_harness) -> None:
-    harness = agent_harness([tool("run_command", executable="cmd", args=["/c", "del", "*"]), finish("blocked")])
+    harness = agent_harness(
+        [tool("run_command", executable="cmd", args=["/c", "del", "*"]), finish("blocked")]
+    )
     result = harness.runner.run(harness.state)
     assert result.status.value == "completed"
     assert any(item.error_code == "policy_error" for item in result.recent_observations)

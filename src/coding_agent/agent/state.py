@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from coding_agent.agent.actions import ModelUsage, Observation
+from coding_agent.agent.actions import JsonValue, ModelUsage, Observation
 
 
 class RunStatus(StrEnum):
@@ -50,6 +50,7 @@ class RunState:
     task: str
     base_commit: str
     limits: RunLimits
+    effective_config: dict[str, JsonValue] = field(default_factory=dict)
     status: RunStatus = RunStatus.STARTING
     step_count: int = 0
     usage: ModelUsage = field(default_factory=ModelUsage)
@@ -65,7 +66,12 @@ class RunState:
 
     @classmethod
     def start(
-        cls, repo_root: Path, task: str, base_commit: str, limits: RunLimits
+        cls,
+        repo_root: Path,
+        task: str,
+        base_commit: str,
+        limits: RunLimits,
+        effective_config: dict[str, JsonValue] | None = None,
     ) -> RunState:
         if not repo_root.is_absolute():
             raise ValueError("repository root must be absolute")
@@ -77,6 +83,7 @@ class RunState:
             task=task.strip(),
             base_commit=base_commit,
             limits=limits,
+            effective_config=dict(effective_config or {}),
         )
         state.recent_observations = deque(maxlen=limits.recent_observations)
         return state

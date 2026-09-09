@@ -69,13 +69,11 @@ def agent_harness(
         base = current_head(repo)
         run_dir = tmp_path / "run"
         writer = EventWriter(run_dir / "events.jsonl", "run-1")
-        backend = LocalExecutionBackend(
-            repo, CommandPolicy(((sys.executable, ("-m", "pytest")),))
-        )
+        backend = LocalExecutionBackend(repo, CommandPolicy(((sys.executable, ("-m", "pytest")),)))
         registry = ToolRegistry.create(ToolContext(repo, base, backend, writer))
         state = RunState.start(repo, "fix add", base, limits or RunLimits(max_steps=10))
         model = ScriptedModelClient(responses)
-        finalizer = Finalizer(writer, lambda: git_diff(repo, base).patch)
+        finalizer = Finalizer(writer, lambda: git_diff(repo, base))
         runner = AgentRunner(model, ContextBuilder(), registry, writer, finalizer)
         return Harness(repo, run_dir, state, model, runner)
 

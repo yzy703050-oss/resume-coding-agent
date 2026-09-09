@@ -3,7 +3,7 @@ import sys
 from conftest import finish, tool
 
 from coding_agent.agent.state import RunStatus
-from coding_agent.models.openai_compatible import ModelFormatError
+from coding_agent.models.base import ModelFormatError
 
 
 def test_failed_test_becomes_observation_and_can_be_repaired(agent_harness) -> None:
@@ -23,9 +23,7 @@ def test_failed_test_becomes_observation_and_can_be_repaired(agent_harness) -> N
     )
     result = harness.runner.run(harness.state)
     assert result.status is RunStatus.COMPLETED
-    assert any(
-        not item.ok and item.tool == "run_command" for item in result.recent_observations
-    )
+    assert any(not item.ok and item.tool == "run_command" for item in result.recent_observations)
     assert result.latest_test_result is not None and result.latest_test_result.ok
 
 

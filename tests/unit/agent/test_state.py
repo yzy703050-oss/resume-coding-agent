@@ -47,6 +47,12 @@ def test_usage_accumulates_reported_tokens_and_cost() -> None:
     assert usage.cost_usd == pytest.approx(0.03)
 
 
+def test_usage_accepts_first_reported_cost_from_empty_accumulator() -> None:
+    usage = ModelUsage()
+    usage.add(ModelUsage(input_tokens=2, cost_usd=0.25))
+    assert usage.cost_usd == pytest.approx(0.25)
+
+
 def test_terminal_state_rejects_observation_mutation(tmp_path: Path) -> None:
     state = RunState.start(tmp_path, "fix", "abc123", RunLimits())
     state.finish(RunStatus.FAILED, "boom")

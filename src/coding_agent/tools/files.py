@@ -26,6 +26,7 @@ def _files(root: Path, start: Path, pattern: str | None = None) -> list[Path]:
     result = []
     for candidate in candidates:
         relative = candidate.relative_to(root.resolve())
+        resolve_confined(root, relative)
         if ".git" in relative.parts:
             continue
         if pattern is not None and not fnmatch(candidate.name, pattern):

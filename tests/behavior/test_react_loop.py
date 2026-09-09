@@ -24,8 +24,6 @@ def test_runner_reads_edits_tests_and_finishes(agent_harness) -> None:
     assert result.status is RunStatus.COMPLETED
     assert result.step_count == 4
     assert "return a+b" in (harness.repo / "calc.py").read_text(encoding="utf-8")
-    assert "passed" in "\n".join(
-        message.content for message in harness.model.received_messages[3]
-    )
+    assert "passed" in "\n".join(message.content for message in harness.model.received_messages[3])
     assert (harness.run_dir / "patch.diff").read_text(encoding="utf-8")
     assert (harness.run_dir / "summary.json").exists()

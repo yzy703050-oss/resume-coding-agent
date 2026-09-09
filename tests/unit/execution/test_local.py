@@ -1,7 +1,12 @@
 import sys
 import time
+from contextlib import AbstractContextManager
 from pathlib import Path
+from types import TracebackType
 
+import pytest
+
+import coding_agent.execution.local as local_module
 from coding_agent.execution.base import CommandRequest
 from coding_agent.execution.local import LocalExecutionBackend
 from coding_agent.execution.policy import CommandPolicy
@@ -61,7 +66,8 @@ def test_backend_normalizes_blocked_and_spawn_failed(tmp_path: Path) -> None:
 def test_timeout_kills_child_process_tree(tmp_path: Path) -> None:
     marker = tmp_path / "child-survived.txt"
     child_code = (
-        f"(__import__('time').sleep(.8),__import__('pathlib').Path({str(marker)!r}).write_text('bad'))"
+        f"(__import__('time').sleep(.8),"
+        f"__import__('pathlib').Path({str(marker)!r}).write_text('bad'))"
     )
     parent_code = (
         f"(__import__('subprocess').Popen([__import__('sys').executable,'-c',{child_code!r}]),"
@@ -81,3 +87,32 @@ def test_backend_rejects_cwd_escape(tmp_path: Path) -> None:
         CommandRequest(sys.executable, ("-c", "print('no')"), "..", 1, 100)
     )
     assert result.status == "blocked"
+
+
+def test_assignment_failure_cleans_already_started_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    marker = tmp_path / "leaked.txt"
+
+    class FailingJob(AbstractContextManager["FailingJob"]):
+        def __enter__(self) -> "FailingJob":
+            return self
+
+        def assign(self, process) -> None:
+            raise OSError("cannot assign")
+
+        def terminate(self, process) -> None:
+            process.kill()
+
+        def __exit__(self, exc_type, exc_value, traceback: TracebackType | None) -> None:
+            return None
+
+    monkeypatch.setattr(local_module, "_job_context", FailingJob)
+    code = (
+        f"(__import__('time').sleep(.5),"
+        f"__import__('pathlib').Path({str(marker)!r}).write_text('bad'))"
+    )
+    result = backend(tmp_path).run(CommandRequest(sys.executable, ("-c", code), ".", 2, 100))
+    assert result.status == "spawn_failed"
+    time.sleep(0.7)
+    assert not marker.exists()

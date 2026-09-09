@@ -9,6 +9,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from coding_agent.agent.actions import FinishAction, JsonValue, ModelUsage, ToolAction
 from coding_agent.context.builder import Message
 
+
+class ModelFormatError(ValueError):
+    pass
+
+
 type AgentAction = Annotated[ToolAction | FinishAction, Field(discriminator="kind")]
 
 

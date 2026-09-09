@@ -48,9 +48,14 @@ class ModelUsage(BaseModel):
         return self.input_tokens + self.output_tokens
 
     def add(self, other: ModelUsage) -> None:
+        had_reported_usage = self.total_tokens > 0
         self.input_tokens += other.input_tokens
         self.output_tokens += other.output_tokens
-        if self.cost_usd is None or other.cost_usd is None:
+        if other.cost_usd is None:
             self.cost_usd = None
+        elif self.cost_usd is None and not had_reported_usage:
+            self.cost_usd = other.cost_usd
+        elif self.cost_usd is None:
+            return
         else:
             self.cost_usd += other.cost_usd

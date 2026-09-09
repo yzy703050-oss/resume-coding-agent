@@ -10,11 +10,7 @@ from pydantic import ValidationError
 
 from coding_agent.agent.actions import FinishAction, JsonValue, ModelUsage, ToolAction
 from coding_agent.context.builder import Message
-from coding_agent.models.base import ModelResponse
-
-
-class ModelFormatError(ValueError):
-    pass
+from coding_agent.models.base import ModelFormatError, ModelResponse
 
 
 class ModelTransportError(RuntimeError):

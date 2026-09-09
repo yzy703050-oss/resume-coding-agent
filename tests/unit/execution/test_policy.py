@@ -28,3 +28,22 @@ def test_policy_rejects_unapproved_executable_and_is_immutable() -> None:
         policy.check(CommandRequest("cmd", ("/c", "echo", "hello"), ".", 1, 100))
     with pytest.raises((AttributeError, TypeError)):
         policy.allowed_prefixes += (("cmd", ()),)
+
+
+@pytest.mark.parametrize("disguised", ["./pytest", ".\\pytest.exe"])
+def test_default_policy_rejects_dot_relative_allowed_name(disguised: str) -> None:
+    with pytest.raises(CommandPolicyError, match="not allowed"):
+        CommandPolicy.default().check(CommandRequest(disguised, (), ".", 1, 100))
+
+
+def test_default_policy_rejects_allowed_name_from_arbitrary_path(tmp_path) -> None:
+    disguised = tmp_path / "pytest.exe"
+    with pytest.raises(CommandPolicyError, match="not allowed"):
+        CommandPolicy.default().check(CommandRequest(str(disguised), (), ".", 1, 100))
+
+
+def test_absolute_allow_entry_does_not_allow_same_bare_name(tmp_path) -> None:
+    trusted = tmp_path / "pytest.exe"
+    policy = CommandPolicy(((str(trusted), ()),))
+    with pytest.raises(CommandPolicyError, match="not allowed"):
+        policy.check(CommandRequest("pytest", (), ".", 1, 100))

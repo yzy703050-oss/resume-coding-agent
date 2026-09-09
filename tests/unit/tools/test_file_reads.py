@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from coding_agent.tools.files import list_files, read_file, search_code
 
 
@@ -48,3 +50,18 @@ def test_read_file_normalizes_utf8_error(tmp_path: Path) -> None:
     result = read_file(tmp_path, "binary.bin")
     assert not result.ok
     assert result.error_code == "decode_error"
+
+
+def test_search_rejects_symlinked_file_outside_repository(tmp_path: Path) -> None:
+    outside = tmp_path.parent / "outside-secret.py"
+    outside.write_text("secret_marker = 1\n", encoding="utf-8")
+    try:
+        (tmp_path / "linked.py").symlink_to(outside)
+    except OSError as error:
+        pytest.skip(f"symlink creation unavailable: {error}")
+
+    result = search_code(tmp_path, "secret_marker")
+
+    assert not result.ok
+    assert result.error_code == "path_policy"
+    assert "secret_marker" not in str(result.data)

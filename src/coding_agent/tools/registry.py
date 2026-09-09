@@ -164,9 +164,7 @@ class ToolRegistry:
     def _search(self, value: BaseModel) -> ToolResult:
         args = cast(SearchCodeInput, value)
         return _from_observation(
-            search_code(
-                self._context.repo_root, args.query, args.path, args.glob, args.max_results
-            )
+            search_code(self._context.repo_root, args.query, args.path, args.glob, args.max_results)
         )
 
     def _read(self, value: BaseModel) -> ToolResult:

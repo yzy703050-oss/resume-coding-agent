@@ -94,7 +94,8 @@ def test_scripted_baseline_aggregates_all_three_tasks(tmp_path: Path) -> None:
     assert report["successes"] == 3
     assert report["success_rate"] == 1.0
     assert all(
-        set(item) == {
+        set(item)
+        == {
             "task_id",
             "success",
             "steps",

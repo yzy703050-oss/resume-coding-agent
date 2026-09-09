@@ -33,6 +33,15 @@ def test_budget_limit_uses_reported_usage(agent_harness) -> None:
     assert len(terminal_events(harness.run_dir)) == 1
 
 
+def test_cost_budget_limit_uses_first_reported_cost(agent_harness) -> None:
+    response = ModelResponse(
+        action=ToolAction(tool="read_file", arguments={"path": "calc.py"}),
+        usage=ModelUsage(input_tokens=1, cost_usd=0.6),
+    )
+    harness = agent_harness([response], RunLimits(max_steps=3, max_cost_usd=0.5))
+    assert harness.runner.run(harness.state).status is RunStatus.BUDGET_LIMIT
+
+
 @pytest.mark.parametrize(
     ("failure", "status"),
     [(KeyboardInterrupt(), RunStatus.CANCELLED), (RuntimeError("boom"), RunStatus.FAILED)],
