@@ -10,7 +10,7 @@ from coding_agent.models.base import ModelResponse
 
 
 class ScriptedModelClient:
-    def __init__(self, responses: list[ModelResponse | Exception]) -> None:
+    def __init__(self, responses: list[ModelResponse | BaseException]) -> None:
         self._responses = deque(responses)
         self.received_messages: list[list[Message]] = []
         self.received_tool_schemas: list[list[dict[str, JsonValue]]] = []
@@ -23,6 +23,6 @@ class ScriptedModelClient:
         if not self._responses:
             raise RuntimeError("scripted model response queue exhausted")
         response = self._responses.popleft()
-        if isinstance(response, Exception):
+        if isinstance(response, BaseException):
             raise response
         return response
