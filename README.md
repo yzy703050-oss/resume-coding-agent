@@ -1,4 +1,4 @@
-# Baseline Coding Agent
+# Coding Agent with Hierarchical Context and Memory
 
 A small, inspectable Coding Agent that turns a task against a clean local Git repository into a tested patch and an auditable trajectory. The project is deliberately a baseline: its complete control loop fits in one runner, its tools are deterministic, and its claims are checked by tests and independent evaluation rather than model prose.
 
@@ -15,23 +15,37 @@ The current deterministic baseline solves all three included micro-tasks (3/3). 
 ## Architecture
 
 ```mermaid
-flowchart LR
-    CLI[Typer CLI] --> Runner[Single ReAct AgentRunner]
-    Runner --> Context[Deterministic ContextBuilder]
-    Context --> Model[ModelClient]
-    Model --> Runner
-    Runner --> Tools[Fixed six-tool registry]
-    Tools --> Files[Confined file and Git tools]
-    Tools --> Exec[Windows-first local backend]
-    Files --> Runner
-    Exec --> Runner
-    Runner --> Finalizer[Single terminal owner]
-    Finalizer --> Events[events.jsonl]
-    Finalizer --> Patch[patch.diff]
-    Finalizer --> Summary[summary.json]
+flowchart TD
+    CLI["CLI / preset composition"] --> RUNNER["Single-action AgentRunner"]
+    RUNNER -->|prepare| CM["ContextManager"]
+    CM --> WM["L1 WorkingMemory"]
+    CM --> EP["L2 EpisodicMemory"]
+    EP --> PIPE["Immutable history processors"]
+    PIPE --> COND["L3 condenser"]
+    CM --> REPO["PythonRepoMap"]
+    CM --> STORE["L4 project-scoped SQLite"]
+    ID["Versioned project_id"] --> STORE
+    CM --> SELECT["ContextSelector + budgets"]
+    SELECT --> BUILD["Formatting-only ContextBuilder"]
+    BUILD --> MODEL["ModelClient"]
+    MODEL --> RUNNER
+    RUNNER --> TOOLS["Fixed six-tool registry"]
+    TOOLS --> REC["RunEventRecorder"]
+    RUNNER --> REC
+    REC --> CANON["Canonical in-memory event"]
+    CANON --> HISTORY["History sanitization/projection"]
+    HISTORY --> EP
+    CANON --> AUDIT["Audit sanitization/truncation"]
+    AUDIT --> JSONL["events.jsonl"]
+    RUNNER --> FINAL["Finalizer: sole terminal owner"]
+    FINAL --> PATCH["patch.diff + summary.json"]
 ```
 
-`Finalizer` is the only component that may write `AgentFinished` or `AgentFailed`. Completion, step limit, budget limit, cancellation, and failure all use that one path. Working context uses deterministic character budgets: file reads are keyed by path, rereads become most recent, and least-recently-read files are evicted first. There is no extra summarization model, embedding search, or semantic ranker.
+`Finalizer` remains the only component that may write `AgentFinished` or `AgentFailed`. Runtime facts are created once, then independently projected to richer secret-free episodic history and stricter audit JSONL. The model-facing history never reads the audit-truncated payload.
+
+The default `baseline` preset preserves the small deterministic runtime. Opt-in presets are `processor`, `condenser`, `repo-map`, `project-memory`, and `full`. `full` enables deterministic processing/condensation, static Python symbols, and validated cross-run project memory; it is not the default and will not become the default without comparative evaluation.
+
+Project memory is stored in `project-memory.sqlite3` under the external artifact root. A versioned SHA-256 `project_id` prefers a credential-free canonical Git origin and otherwise uses the resolved Git common directory. Extractors can only propose typed candidates. Every proposal passes sanitization, policy, canonical-event/path provenance validation, normalization, and deduplication before the SQLite API accepts it. Optional LLM extractors and condensers can call a model only through the auxiliary gateway; their reported tokens/cost count separately and toward the combined Run limits.
 
 ## Install
 
@@ -76,6 +90,8 @@ $env:OPENAI_API_KEY = "your-key"
 coding-agent run C:\path\to\clean-repo --task "Fix issue #123 and run focused tests" --model gpt-5 --base-url https://api.openai.com/v1 --max-steps 20 --timeout 60
 ```
 
+Enable all V2 context sources explicitly with `--memory-preset full`. Auxiliary model features remain disabled unless configured with hard limits such as `--auxiliary-max-calls`, `--auxiliary-max-tokens`, and `--auxiliary-max-cost`.
+
 The target must be a Git repository with no staged or unstaged tracked changes. Configuration and artifacts never include the API key value. Use `coding-agent run --help` for all limits.
 
 By default, run artifacts are written to a repository-sibling directory named `.<repository>-coding-agent-runs`. An explicit `--artifacts-dir` must also be outside the target repository so logs cannot enter exploration results or the generated patch.
@@ -102,7 +118,7 @@ python -m pytest -q
 ruff check .
 ruff format --check .
 mypy src/coding_agent
-openspec.cmd validate build-coding-agent-mvp --strict
+openspec.cmd validate --all --strict
 ```
 
 Tests cover domain transitions, terminal-event uniqueness, context retention/eviction, path confinement, checked edits, command policy, Windows process-tree cleanup, model parsing/retries, agent recovery and limits, CLI composition, three fixture oracles, and the complete offline loop.
@@ -116,8 +132,8 @@ Tests cover domain transitions, terminal-event uniqueness, context retention/evi
 
 The implementation borrows the trade-offs, not source code or a framework-sized architecture.
 
-## V1 boundaries
+## Current boundaries
 
-This release intentionally excludes persistent memory, RepoMap/RAG, multi-agent orchestration, multiple strategies, worktrees, Docker or general sandboxing, MCP, skills, FastAPI, a web UI, distributed execution, run resumption, and SWE-bench runtime integration. SWE-bench Lite belongs in a later fixed Linux evaluation runner after real baseline failure modes justify the next change.
+Cross-process resumption of run-local working, episodic, or condensed memory remains out of scope. The release also excludes multi-agent orchestration, vector databases, embeddings, Docker/general sandboxing, FastAPI/web UI, and distributed execution. SQLite persists only curated project knowledge, never resumable Run state.
 
 Known limitations: exact-string edits are less flexible than patch/hunk formats; context uses approximate character rather than tokenizer budgets; only UTF-8 text is supported; and the local command policy reduces accidental shell misuse but cannot make untrusted repository tests safe.

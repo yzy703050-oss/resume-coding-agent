@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict, deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -37,12 +36,6 @@ class RunLimits(BaseModel):
     recent_observations: int = Field(default=20, ge=1)
 
 
-@dataclass(frozen=True)
-class ContextItem:
-    path: str
-    content: str
-
-
 @dataclass
 class RunState:
     run_id: str
@@ -54,15 +47,26 @@ class RunState:
     status: RunStatus = RunStatus.STARTING
     step_count: int = 0
     usage: ModelUsage = field(default_factory=ModelUsage)
-    recent_observations: deque[Observation] = field(default_factory=deque)
-    pinned_context: OrderedDict[str, ContextItem] = field(default_factory=OrderedDict)
+    auxiliary_usage: ModelUsage = field(default_factory=ModelUsage)
     latest_test_result: Observation | None = None
-    changed_files: list[str] = field(default_factory=list)
     tool_counts: dict[str, int] = field(default_factory=dict)
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     finished_at: datetime | None = None
     termination_reason: str | None = None
     finish_summary: str | None = None
+    context_metrics: dict[str, JsonValue] = field(default_factory=dict)
+    memory_metrics: dict[str, JsonValue] = field(default_factory=dict)
+
+    @property
+    def total_tokens(self) -> int:
+        return self.usage.total_tokens + self.auxiliary_usage.total_tokens
+
+    @property
+    def total_cost_usd(self) -> float | None:
+        usages = (self.usage, self.auxiliary_usage)
+        if any(item.total_tokens > 0 and item.cost_usd is None for item in usages):
+            return None
+        return sum(item.cost_usd or 0.0 for item in usages)
 
     @classmethod
     def start(
@@ -85,7 +89,6 @@ class RunState:
             limits=limits,
             effective_config=dict(effective_config or {}),
         )
-        state.recent_observations = deque(maxlen=limits.recent_observations)
         return state
 
     def _require_mutable(self) -> None:
@@ -102,20 +105,9 @@ class RunState:
 
     def add_observation(self, observation: Observation) -> None:
         self._require_mutable()
-        self.recent_observations.append(observation)
         self.tool_counts[observation.tool] = self.tool_counts.get(observation.tool, 0) + 1
         if observation.tool == "run_command" and observation.data.get("is_test") is True:
             self.latest_test_result = observation
-
-    def pin_file(self, path: str, content: str) -> None:
-        self._require_mutable()
-        self.pinned_context.pop(path, None)
-        self.pinned_context[path] = ContextItem(path=path, content=content)
-
-    def mark_changed(self, path: str) -> None:
-        self._require_mutable()
-        if path not in self.changed_files:
-            self.changed_files.append(path)
 
     def finish(self, status: RunStatus, reason: str) -> None:
         self._require_mutable()

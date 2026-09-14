@@ -11,7 +11,7 @@ from typing import Literal, cast
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from coding_agent.agent.actions import JsonValue, Observation
-from coding_agent.events.writer import EventWriter
+from coding_agent.events.sink import EventSink
 from coding_agent.execution.base import ExecutionBackend
 from coding_agent.tools.commands import run_command
 from coding_agent.tools.files import edit_file, list_files, read_file, search_code
@@ -36,7 +36,7 @@ class ToolContext:
     repo_root: Path
     base_commit: str
     execution_backend: ExecutionBackend
-    event_writer: EventWriter
+    event_writer: EventSink
     command_timeout_seconds: float = 60
 
 

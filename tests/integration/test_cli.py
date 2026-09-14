@@ -103,6 +103,10 @@ def test_cli_runs_scripted_agent_and_prints_artifacts(tmp_path: Path) -> None:
         "context_max_chars": 24000,
         "pinned_max_chars": 12000,
         "model_mode": "scripted",
+        "memory_preset": "baseline",
+        "auxiliary_max_calls": 0,
+        "auxiliary_max_tokens": 0,
+        "auxiliary_max_cost_usd": None,
     }
     events = [
         json.loads(line)

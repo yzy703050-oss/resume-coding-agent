@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 from pydantic import SecretStr, ValidationError
@@ -14,14 +15,31 @@ from pydantic import SecretStr, ValidationError
 from coding_agent.agent.runner import AgentRunner
 from coding_agent.agent.state import RunLimits, RunState, RunStatus
 from coding_agent.config import RunConfig
+from coding_agent.context.budget import ContextBudget
 from coding_agent.context.builder import ContextBuilder
+from coding_agent.context.manager import ContextManager
+from coding_agent.context.selector import ContextSelector
 from coding_agent.events.artifacts import Finalizer
+from coding_agent.events.recorder import RunEventRecorder
 from coding_agent.events.writer import EventWriter
 from coding_agent.execution.local import LocalExecutionBackend
 from coding_agent.execution.policy import CommandPolicy
+from coding_agent.memory.candidates import DeterministicProjectMemoryCandidateExtractor
+from coding_agent.memory.condenser import SlidingWindowCondenser
+from coding_agent.memory.episodic import EpisodicMemory
+from coding_agent.memory.identity import ProjectIdentityResolver
+from coding_agent.memory.persistent import ProjectMemoryStore
+from coding_agent.memory.processors import (
+    DeduplicateProcessor,
+    HistoryProcessorPipeline,
+    LargeOutputProcessor,
+    RecentObservationProcessor,
+)
+from coding_agent.memory.working import WorkingMemory
 from coding_agent.models.base import ModelClient, ModelResponse
 from coding_agent.models.openai_compatible import OpenAICompatibleClient
 from coding_agent.models.scripted import ScriptedModelClient
+from coding_agent.repository.repomap import PythonRepoMap
 from coding_agent.tools.git import GitError, current_head, git_diff, require_clean_worktree
 from coding_agent.tools.registry import ToolContext, ToolRegistry
 
@@ -67,27 +85,64 @@ def build_runner(config: RunConfig, model_client: ModelClient | None = None) -> 
             "context_max_chars": config.context_max_chars,
             "pinned_max_chars": config.pinned_max_chars,
             "model_mode": "scripted" if config.script is not None else "live",
+            "memory_preset": config.memory_preset,
+            "auxiliary_max_calls": config.auxiliary_max_calls,
+            "auxiliary_max_tokens": config.auxiliary_max_tokens,
+            "auxiliary_max_cost_usd": config.auxiliary_max_cost_usd,
         },
     )
     run_dir = artifact_root / state.run_id
     secrets = {config.api_key.get_secret_value()} if config.api_key is not None else set()
     writer = EventWriter(run_dir / "events.jsonl", state.run_id, secrets=secrets)
+    episodic = EpisodicMemory()
+    recorder = RunEventRecorder(writer, episodic, secrets)
     backend = LocalExecutionBackend(repository, CommandPolicy.default())
     tools = ToolRegistry.create(
         ToolContext(
             repository,
             base_commit,
             backend,
-            writer,
+            recorder,
             command_timeout_seconds=config.command_timeout_seconds,
         )
     )
-    finalizer = Finalizer(writer, lambda: git_diff(repository, base_commit))
+    finalizer = Finalizer(recorder, lambda: git_diff(repository, base_commit))
+    processor_enabled = config.memory_preset in {"processor", "condenser", "full"}
+    condenser_enabled = config.memory_preset in {"condenser", "full"}
+    repo_map_enabled = config.memory_preset in {"repo-map", "full"}
+    project_memory_enabled = config.memory_preset in {"project-memory", "full"}
+    project_id = None
+    project_store = None
+    if project_memory_enabled:
+        try:
+            project_id = ProjectIdentityResolver(repository).resolve()
+            project_store = ProjectMemoryStore(artifact_root / "project-memory.sqlite3")
+        except (OSError, RuntimeError, sqlite3.Error):
+            project_id = None
+            project_store = None
+    processors = (
+        (DeduplicateProcessor(), LargeOutputProcessor(8_000), RecentObservationProcessor(40))
+        if processor_enabled
+        else ()
+    )
+    context_manager = ContextManager(
+        ContextBudget(config.context_max_chars),
+        WorkingMemory(config.pinned_max_chars),
+        episodic,
+        ContextSelector(),
+        ContextBuilder(),
+        HistoryProcessorPipeline(processors),
+        PythonRepoMap(repository) if repo_map_enabled else None,
+        project_id,
+        project_store,
+        DeterministicProjectMemoryCandidateExtractor() if project_memory_enabled else None,
+        SlidingWindowCondenser(keep_recent=8) if condenser_enabled else None,
+    )
     runner = AgentRunner(
         model,
-        ContextBuilder(config.context_max_chars, config.pinned_max_chars),
+        context_manager,
         tools,
-        writer,
+        recorder,
         finalizer,
     )
     return BuiltRun(runner, state)
@@ -122,6 +177,13 @@ def run(
     max_tokens: Annotated[int | None, typer.Option("--max-tokens", min=1)] = None,
     timeout: Annotated[float, typer.Option("--timeout", min=0.1, max=600)] = 60,
     context_limit: Annotated[int, typer.Option("--context-limit", min=400)] = 24_000,
+    memory_preset: Annotated[
+        Literal["baseline", "processor", "condenser", "repo-map", "project-memory", "full"],
+        typer.Option("--memory-preset"),
+    ] = "baseline",
+    auxiliary_max_calls: Annotated[int, typer.Option("--auxiliary-max-calls", min=0)] = 0,
+    auxiliary_max_tokens: Annotated[int, typer.Option("--auxiliary-max-tokens", min=0)] = 0,
+    auxiliary_max_cost: Annotated[float | None, typer.Option("--auxiliary-max-cost", min=0)] = None,
     artifacts_dir: Annotated[Path | None, typer.Option("--artifacts-dir")] = None,
     script: Annotated[Path | None, typer.Option("--script", help="Offline response script")] = None,
 ) -> None:
@@ -138,6 +200,10 @@ def run(
             max_tokens=max_tokens,
             command_timeout_seconds=timeout,
             context_max_chars=context_limit,
+            memory_preset=memory_preset,
+            auxiliary_max_calls=auxiliary_max_calls,
+            auxiliary_max_tokens=auxiliary_max_tokens,
+            auxiliary_max_cost_usd=auxiliary_max_cost,
             artifacts_dir=artifacts_dir,
             script=script,
         )

@@ -31,3 +31,18 @@ class RunEvent(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     type: EventType
     payload: dict[str, JsonValue]
+    correlation_id: str | None = None
+
+
+class CanonicalRunEvent(BaseModel):
+    """Single in-memory runtime fact before history/audit projection."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["1"] = "1"
+    run_id: str = Field(min_length=1)
+    sequence: int = Field(ge=1)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    type: EventType
+    payload: dict[str, JsonValue]
+    correlation_id: str | None = None

@@ -11,11 +11,18 @@ import pytest
 from coding_agent.agent.actions import FinishAction, ModelUsage, ToolAction
 from coding_agent.agent.runner import AgentRunner
 from coding_agent.agent.state import RunLimits, RunState
+from coding_agent.context.budget import ContextBudget
 from coding_agent.context.builder import ContextBuilder
+from coding_agent.context.manager import ContextManager
+from coding_agent.context.selector import ContextSelector
 from coding_agent.events.artifacts import Finalizer
+from coding_agent.events.recorder import RunEventRecorder
 from coding_agent.events.writer import EventWriter
 from coding_agent.execution.local import LocalExecutionBackend
 from coding_agent.execution.policy import CommandPolicy
+from coding_agent.memory.episodic import EpisodicMemory
+from coding_agent.memory.processors import HistoryProcessorPipeline
+from coding_agent.memory.working import WorkingMemory
 from coding_agent.models.base import ModelResponse
 from coding_agent.models.scripted import ScriptedModelClient
 from coding_agent.tools.git import current_head, git_diff
@@ -47,6 +54,7 @@ class Harness:
     state: RunState
     model: ScriptedModelClient
     runner: AgentRunner
+    context_manager: ContextManager
 
 
 @pytest.fixture
@@ -69,12 +77,22 @@ def agent_harness(
         base = current_head(repo)
         run_dir = tmp_path / "run"
         writer = EventWriter(run_dir / "events.jsonl", "run-1")
+        episodic = EpisodicMemory()
+        recorder = RunEventRecorder(writer, episodic)
         backend = LocalExecutionBackend(repo, CommandPolicy(((sys.executable, ("-m", "pytest")),)))
-        registry = ToolRegistry.create(ToolContext(repo, base, backend, writer))
+        registry = ToolRegistry.create(ToolContext(repo, base, backend, recorder))
         state = RunState.start(repo, "fix add", base, limits or RunLimits(max_steps=10))
         model = ScriptedModelClient(responses)
-        finalizer = Finalizer(writer, lambda: git_diff(repo, base))
-        runner = AgentRunner(model, ContextBuilder(), registry, writer, finalizer)
-        return Harness(repo, run_dir, state, model, runner)
+        finalizer = Finalizer(recorder, lambda: git_diff(repo, base))
+        manager = ContextManager(
+            ContextBudget(24_000),
+            WorkingMemory(),
+            episodic,
+            ContextSelector(),
+            ContextBuilder(),
+            HistoryProcessorPipeline(()),
+        )
+        runner = AgentRunner(model, manager, registry, recorder, finalizer)
+        return Harness(repo, run_dir, state, model, runner, manager)
 
     return create

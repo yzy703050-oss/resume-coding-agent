@@ -10,7 +10,7 @@ from typing import Protocol, cast
 
 from coding_agent.agent.actions import JsonValue
 from coding_agent.agent.state import RunState, RunStatus
-from coding_agent.events.writer import EventWriter
+from coding_agent.events.recorder import RunEventRecorder
 
 
 @dataclass(frozen=True)
@@ -32,7 +32,7 @@ class Finalizer:
     """Sole terminal-event owner for one run."""
 
     def __init__(
-        self, event_writer: EventWriter, patch_provider: Callable[[], PatchEvidence]
+        self, event_writer: RunEventRecorder, patch_provider: Callable[[], PatchEvidence]
     ) -> None:
         self._event_writer = event_writer
         self._patch_provider = patch_provider
@@ -77,10 +77,22 @@ class Finalizer:
         latest_test = (
             state.latest_test_result.model_dump(mode="json") if state.latest_test_result else None
         )
-        usage: dict[str, JsonValue] = cast(
+        main_usage: dict[str, JsonValue] = cast(
             dict[str, JsonValue],
             state.usage.model_dump(mode="json") | {"total_tokens": state.usage.total_tokens},
         )
+        auxiliary_usage: dict[str, JsonValue] = cast(
+            dict[str, JsonValue],
+            state.auxiliary_usage.model_dump(mode="json")
+            | {"total_tokens": state.auxiliary_usage.total_tokens},
+        )
+        usage: dict[str, JsonValue] = {
+            **main_usage,
+            "main": main_usage,
+            "auxiliary": auxiliary_usage,
+            "combined_total_tokens": state.total_tokens,
+            "combined_cost_usd": state.total_cost_usd,
+        }
         return {
             "schema_version": "1",
             "run_id": state.run_id,
@@ -97,6 +109,8 @@ class Finalizer:
             "changed_files": cast(list[JsonValue], list(changed_files)),
             "latest_test_result": latest_test,
             "finish_summary": state.finish_summary,
+            "context_metrics": state.context_metrics,
+            "memory_metrics": state.memory_metrics,
             "artifacts": {
                 "events": self._event_writer.path.name,
                 "patch": "patch.diff",

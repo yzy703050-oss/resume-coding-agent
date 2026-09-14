@@ -58,6 +58,19 @@ class EventWriter:
         self._sequence = event.sequence
         return event
 
+    def write(self, event: RunEvent) -> RunEvent:
+        """Write an already projected audit event without creating another fact."""
+        if self._closed:
+            raise ValueError("event writer is closed")
+        if event.run_id != self.run_id:
+            raise ValueError("event run_id does not match writer")
+        if event.sequence != self._sequence + 1:
+            raise ValueError("event sequence is not contiguous")
+        self._stream.write(json.dumps(event.model_dump(mode="json"), ensure_ascii=False) + "\n")
+        self._stream.flush()
+        self._sequence = event.sequence
+        return event
+
     def _sanitize(self, value: JsonValue) -> JsonValue:
         if isinstance(value, str):
             sanitized = value

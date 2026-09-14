@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from coding_agent.agent.actions import FinishAction, ModelUsage, ToolAction
-from coding_agent.evaluation.baseline import run_scripted_baseline
+from coding_agent.evaluation.baseline import run_scripted_baseline, run_scripted_presets
 from coding_agent.evaluation.fixtures import load_manifest
 from coding_agent.evaluation.runner import evaluate_fixture
 from coding_agent.models.base import ModelResponse
@@ -102,7 +102,24 @@ def test_scripted_baseline_aggregates_all_three_tasks(tmp_path: Path) -> None:
             "tool_counts",
             "elapsed_ms",
             "tokens",
+            "main_tokens",
+            "auxiliary_tokens",
             "cost_usd",
+            "memory_preset",
+            "context_metrics",
+            "memory_metrics",
         }
+        for item in report["results"]
+    )
+
+
+def test_named_baseline_and_full_presets_use_the_same_fixture_oracles(tmp_path: Path) -> None:
+    reports = run_scripted_presets(TASKS, tmp_path, ("baseline", "full"))
+
+    assert set(reports) == {"baseline", "full"}
+    assert reports["baseline"]["successes"] == reports["full"]["successes"] == 3
+    assert all(
+        item["memory_preset"] == preset
+        for preset, report in reports.items()
         for item in report["results"]
     )

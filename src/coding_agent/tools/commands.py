@@ -6,13 +6,13 @@ from pathlib import Path
 from typing import cast
 
 from coding_agent.agent.actions import JsonValue
-from coding_agent.events.writer import EventWriter
+from coding_agent.events.sink import EventSink
 from coding_agent.execution.base import CommandRequest, CommandStatus, ExecutionBackend
 
 
 def run_command(
     backend: ExecutionBackend,
-    event_writer: EventWriter,
+    event_writer: EventSink,
     executable: str,
     args: tuple[str, ...],
     cwd: str,

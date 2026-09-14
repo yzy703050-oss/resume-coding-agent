@@ -11,7 +11,7 @@ from typing import cast
 
 from coding_agent.agent.actions import FinishAction, JsonValue, ModelUsage, ToolAction
 from coding_agent.evaluation.fixtures import TaskManifest, load_manifest
-from coding_agent.evaluation.runner import aggregate_results, evaluate_fixture
+from coding_agent.evaluation.runner import MemoryPreset, aggregate_results, evaluate_fixture
 from coding_agent.models.base import ModelResponse
 from coding_agent.models.scripted import ScriptedModelClient
 
@@ -65,6 +65,26 @@ def run_scripted_baseline(tasks_root: Path, workspace: Path) -> dict[str, object
         for manifest in manifests
     ]
     return aggregate_results(results)
+
+
+def run_scripted_presets(
+    tasks_root: Path, workspace: Path, presets: tuple[MemoryPreset, ...]
+) -> dict[str, object]:
+    manifests = [load_manifest(path) for path in sorted(tasks_root.glob("*/task.json"))]
+    return {
+        preset: aggregate_results(
+            [
+                evaluate_fixture(
+                    manifest,
+                    workspace / preset,
+                    ScriptedModelClient(_responses(manifest)),
+                    memory_preset=preset,
+                )
+                for manifest in manifests
+            ]
+        )
+        for preset in presets
+    }
 
 
 def main() -> None:
