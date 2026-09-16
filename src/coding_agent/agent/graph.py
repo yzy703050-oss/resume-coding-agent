@@ -66,14 +66,20 @@ def build_react_graph(
         try:
             response = model.complete(data["messages"], tools.schemas())
         except ModelFormatError as error:
+            payload: dict[str, JsonValue] = {
+                "step": state.step_count,
+                "ok": False,
+                "error": "format_error",
+                "reason_code": error.reason_code,
+            }
+            if error.usage is None:
+                payload["usage_unavailable"] = True
+            else:
+                state.usage.add(error.usage)
+                payload["usage"] = cast(JsonValue, error.usage.model_dump(mode="json"))
             recorder.append(
                 "ModelStep",
-                {
-                    "step": state.step_count,
-                    "ok": False,
-                    "error": "format_error",
-                    "reason_code": error.reason_code,
-                },
+                payload,
             )
             observation = Observation(
                 tool="model",
@@ -86,16 +92,20 @@ def build_react_graph(
             context.record_observation(observation)
             return {"run": state, "response": None}
         state.usage.add(response.usage)
-        recorder.append(
-            "ModelStep",
-            {
-                "step": state.step_count,
-                "ok": True,
-                "action": response.action.kind,
-                "response_id": response.raw_response_id,
-                "usage": cast(JsonValue, response.usage.model_dump(mode="json")),
-            },
-        )
+        payload = {
+            "step": state.step_count,
+            "ok": True,
+            "action": response.action.kind,
+            "response_id": response.raw_response_id,
+            "usage": cast(JsonValue, response.usage.model_dump(mode="json")),
+        }
+        if response.ignored_tool_calls:
+            payload["ignored_tool_calls"] = response.ignored_tool_calls
+            payload["selection_notice"] = (
+                "Only the first tool call was selected; all others were ignored and not executed. "
+                "Call exactly one tool next time."
+            )
+        recorder.append("ModelStep", payload)
         if isinstance(response.action, FinishAction):
             state.finish_summary = response.action.summary
             state.finish(RunStatus.COMPLETED, "model finished")

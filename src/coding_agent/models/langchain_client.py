@@ -49,15 +49,26 @@ class LangChainModelClient:
             raise ModelFormatError(
                 "model returned a non-assistant message", reason_code="non_ai_message"
             )
+        reported_usage = _reported_usage(result)
         if result.invalid_tool_calls:
             raise ModelFormatError(
-                "model returned an invalid tool call", reason_code="invalid_tool_call"
+                "model returned an invalid tool call",
+                reason_code="invalid_tool_call",
+                usage=reported_usage,
             )
         if not result.tool_calls:
-            raise ModelFormatError("model returned no tool call", reason_code="missing_tool_call")
-        if len(result.tool_calls) != 1:
             raise ModelFormatError(
-                "model returned multiple tool calls", reason_code="multiple_tool_calls"
+                "model returned no tool call",
+                reason_code="missing_tool_call",
+                usage=reported_usage,
+            )
+        if len(result.tool_calls) > 1 and any(
+            call["name"] == "finish" for call in result.tool_calls
+        ):
+            raise ModelFormatError(
+                "model mixed finish with another action",
+                reason_code="multiple_tool_calls",
+                usage=reported_usage,
             )
         call = result.tool_calls[0]
         try:
@@ -67,23 +78,41 @@ class LangChainModelClient:
                 if name == "finish"
                 else ToolAction(tool=name, arguments=arguments)
             )
-            usage = result.usage_metadata
-            if usage is None:
-                raw_usage = result.response_metadata.get("token_usage", {})
-                input_tokens = int(raw_usage.get("prompt_tokens", 0))
-                output_tokens = int(raw_usage.get("completion_tokens", 0))
-            else:
-                input_tokens, output_tokens = usage["input_tokens"], usage["output_tokens"]
             raw_id = result.response_metadata.get("id")
             return ModelResponse(
                 action=action,
-                usage=ModelUsage(input_tokens=input_tokens, output_tokens=output_tokens),
+                usage=reported_usage or ModelUsage(),
                 raw_response_id=raw_id if isinstance(raw_id, str) else None,
+                ignored_tool_calls=len(result.tool_calls) - 1,
             )
         except (KeyError, TypeError, ValueError, ValidationError) as error:
             raise ModelFormatError(
-                "invalid model action response", reason_code="invalid_action_arguments"
+                "invalid model action response",
+                reason_code="invalid_action_arguments",
+                usage=reported_usage,
             ) from error
+
+
+def _reported_usage(message: AIMessage) -> ModelUsage | None:
+    metadata = message.usage_metadata
+    if metadata is not None:
+        try:
+            return ModelUsage(
+                input_tokens=metadata["input_tokens"],
+                output_tokens=metadata["output_tokens"],
+            )
+        except (KeyError, TypeError, ValueError, ValidationError):
+            pass
+    raw = message.response_metadata.get("token_usage")
+    if isinstance(raw, dict):
+        try:
+            return ModelUsage(
+                input_tokens=int(raw["prompt_tokens"]),
+                output_tokens=int(raw["completion_tokens"]),
+            )
+        except (KeyError, TypeError, ValueError, ValidationError):
+            pass
+    return None
 
 
 def create_langchain_model(

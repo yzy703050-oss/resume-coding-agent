@@ -33,11 +33,18 @@ _FORMAT_ERROR_REASONS = frozenset(
 
 
 class ModelFormatError(ValueError):
-    def __init__(self, message: str, *, reason_code: FormatErrorReason = "invalid_action") -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        reason_code: FormatErrorReason = "invalid_action",
+        usage: ModelUsage | None = None,
+    ) -> None:
         super().__init__(message)
         self.reason_code: FormatErrorReason = (
             reason_code if reason_code in _FORMAT_ERROR_REASONS else "invalid_action"
         )
+        self.usage = usage
 
 
 type AgentAction = Annotated[ToolAction | FinishAction, Field(discriminator="kind")]
@@ -49,6 +56,7 @@ class ModelResponse(BaseModel):
     action: AgentAction
     usage: ModelUsage = Field(default_factory=ModelUsage)
     raw_response_id: str | None = None
+    ignored_tool_calls: int = Field(default=0, ge=0)
 
 
 class ModelClient(Protocol):

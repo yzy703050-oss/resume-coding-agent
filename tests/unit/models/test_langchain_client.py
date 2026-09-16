@@ -103,7 +103,6 @@ def test_framework_model_binds_real_schemas_and_maps_usage(provider: str) -> Non
     ("calls", "reason_code"),
     [
         ([], "missing_tool_call"),
-        ([call(), call()], "multiple_tool_calls"),
         ([call(arguments="{")], "invalid_tool_call"),
         ([call(arguments="[]")], "invalid_action_arguments"),
         ([call(arguments='{"extra":1}')], "invalid_action_arguments"),
@@ -129,6 +128,75 @@ def test_framework_model_rejects_missing_multiple_or_invalid_actions(calls, reas
     with pytest.raises(ModelFormatError) as exc_info:
         client.complete([Message("user", "fix")], [])
     assert exc_info.value.reason_code == reason_code
+
+
+def test_multiple_tool_calls_select_only_first_and_keep_usage() -> None:
+    from coding_agent.models.langchain_client import create_langchain_model
+
+    client = create_langchain_model(
+        RunConfig(
+            repository=Path.cwd(),
+            task="fix",
+            provider="deepseek",
+            api_key=SecretStr("offline-key"),
+            model="deepseek-flash",
+            base_url="https://api.deepseek.com",
+            thinking_enabled=False,
+        ),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(
+                    200,
+                    json=body(
+                        [
+                            call("read_file", '{"path":"first.py"}'),
+                            call(
+                                "edit_file",
+                                '{"path":"second.py","operation":"create","new_text":"x"}',
+                            ),
+                        ]
+                    ),
+                )
+            )
+        ),
+    )
+    response = client.complete([Message("user", "fix")], [])
+    assert response.action.kind == "tool"
+    assert response.action.tool == "read_file"
+    assert response.action.arguments == {"path": "first.py"}
+    assert response.ignored_tool_calls == 1
+    assert response.usage.total_tokens == 8
+
+
+@pytest.mark.parametrize(
+    "calls",
+    [
+        [call("finish"), call("read_file", '{"path":"first.py"}')],
+        [call("read_file", '{"path":"first.py"}'), call("finish")],
+    ],
+)
+def test_finish_mixed_with_another_call_is_rejected_with_usage(calls) -> None:
+    from coding_agent.models.langchain_client import create_langchain_model
+
+    client = create_langchain_model(
+        RunConfig(
+            repository=Path.cwd(),
+            task="fix",
+            provider="deepseek",
+            api_key=SecretStr("offline-key"),
+            model="deepseek-flash",
+            base_url="https://api.deepseek.com",
+            thinking_enabled=False,
+        ),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body(calls)))
+        ),
+    )
+    with pytest.raises(ModelFormatError) as exc_info:
+        client.complete([Message("user", "fix")], [])
+    assert exc_info.value.reason_code == "multiple_tool_calls"
+    assert exc_info.value.usage is not None
+    assert exc_info.value.usage.total_tokens == 8
 
 
 def test_deepseek_factory_defaults_to_non_thinking_for_required_tools() -> None:
