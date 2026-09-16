@@ -60,4 +60,12 @@ Framework migration verification (later 2026-09-15): final production full suite
 
 Pre-run verification: focused evaluator gate 38 passed in 54.35s; full suite 184 passed in 104.22s. Ruff lint passed and 152 files were formatted; strict mypy passed on 61 source files; strict OpenSpec passed 6/6; diff whitespace check passed. The exact configured key was absent from tracked files and generated `runs/`/`benchmarks/` content (`SECRET_LEAK_FOUND=false`). During this gate, pytest's discovery was corrected to exclude evaluator-owned hidden-oracle source storage while the fresh-copy judge tests continued to execute it explicitly.
 
-Status at this checkpoint: evaluator implementation and pre-run verification are complete; the one authorized paid suite has not yet been executed.
+Status at that pre-run checkpoint: evaluator implementation and verification were complete; the paid execution recorded below had not yet started.
+
+## 2026-09-16 authorized DeepSeek run
+
+The single approved paid suite completed without a canary infrastructure stop: 12/12 tasks were attempted once, with 0/12 strict task successes and 74,506 reported tokens (72,938 input, 1,568 output, 0 auxiliary). No trustworthy billing cost was available, so cost remains `null`.
+
+Six patches passed their fresh-copy hidden oracle, but all 12 Runs failed the frozen protocol-completion requirement. Eight ended at the step limit and four at the reported-token budget; traces contain 30 valid model actions and 55 format errors, and no Run reached visible pytest. Final categories are six `agent_protocol_failed` and six `hidden_oracle_failed`. Median steps were 8 and median Agent elapsed time was 6,254.5 ms.
+
+Post-run inspection confirmed ordered task IDs, matching SHA-256 for all 12 patches, complete events/summary/patch/judge artifacts and `SECRET_LEAK_FOUND=false`. Raw artifacts remain ignored under `runs/`; the sanitized report is `benchmarks/deepseek-live-resume-v1.json`. The run was not retried. A compatibility fix and any second paid evaluation require separate approval and a new immutable report.

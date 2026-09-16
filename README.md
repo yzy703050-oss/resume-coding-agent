@@ -122,7 +122,7 @@ The fixed live limits are DeepSeek Flash non-thinking, baseline memory, 8 decisi
 
 ## Resume release and evaluation status
 
-The trusted 12-task live evaluator is implemented and offline-verified; until its sanitized report is checked in, this release still publishes no real-model success rate or token-saving claim. Generate the older read-only protocol with:
+The trusted evaluator was run once on 2026-09-16. Under the frozen strict definition, complete task success was 0/12; 6/12 generated patches independently passed fresh-copy hidden tests, but no Run completed the finish protocol after repeated model format errors. The repository preserves this negative result rather than rerunning or selecting only successful patches. It is a 12-task microbenchmark, not a general coding success rate. See the [sanitized report](benchmarks/deepseek-live-resume-v1.json) and [interpretation](docs/EVALUATION.md). Generate the older read-only protocol with:
 
 ```powershell
 python -m coding_agent.evaluation.plan

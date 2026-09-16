@@ -6,9 +6,9 @@
 
 - 使用 LangGraph 状态图编排单智能体 ReAct 编码闭环，划分预算检查、上下文准备、模型决策、工具执行与结果观察节点，通过条件路由支持任务结束、失败恢复及预算停止。
 - 设计分层上下文与项目记忆：Working/Episodic Memory、确定性有界历史摘要、Python AST Repo Map 和 SQLite 项目隔离存储；候选经过脱敏、策略、来源引用及去重校验后入库。
-- 使用 LangChain 接入 DeepSeek 模型与自定义兼容接口，绑定由 Pydantic 定义的工具 schema，配置非思考模式与单次输出上限；输出可审计事件、Git Patch 和结构化报告，保留 baseline/full 消融入口。
+- 构建 12 任务 DeepSeek 真实模型评测，使用隔离仓库、外部 hidden tests 与干净副本判题验证代码补丁；单次完整协议评测通过 0/12，其中 6/12 补丁通过 hidden oracle，并基于完整失败轨迹定位 tool-call 格式与终止协议兼容问题。
 
-不要写“真实成功率 100%”“节省 40% token”“完成 SWE-bench 测评”。本版仅工程回归与脚本驱动演示，DeepSeek 请求格式通过真实 LangChain SDK + mock HTTP 验证，端到端真实模型兼容性及效果尚未验证。框架依赖和默认运行路径已实际接线，不是仅添加依赖。
+不要写“真实成功率 100%”“节省 40% token”“完成 SWE-bench 测评”。本次真实评测严格成功数为 0/12，总 reported tokens 为 74,506；不能把 6/12 oracle-passing patches 改写成完整任务成功。若简历篇幅有限，建议保留“构建可信评测与定位兼容问题”的工程贡献，不单独宣传模型效果数字。框架依赖、默认运行路径和付费端到端链路均已实际接线，不是仅添加依赖。
 
 ## 与旅行助手一起展示
 
@@ -20,7 +20,7 @@
 2. `events/recorder.py` 与 projections：一次生成事件事实，分别投影到 richer history 与 audit，correlation_id 保留因果关联。
 3. `context/manager.py` 与 selector：上下文来源如何组合，为什么不是把所有历史塞给模型；字符预算与 token 预算的区别。
 4. `memory/candidates.py`、promotion、persistent：extractor 只提议、不直接写库；project_id 的 remote/common-dir 规则；来源引用验证不等于事实真实性验证。
-5. `evaluation/plan.py` 和本目录评测文档：为什么 scripted 正确不能证明模型正确，如何用外部 hidden oracle 做可信判题。
+5. `evaluation/live.py`、`trusted_oracle.py` 和本目录评测文档：为什么 scripted 正确不能证明模型正确，如何用外部 hidden oracle 做可信判题，以及为何补丁正确但未 finish 仍不是完整成功。
 6. `models/langchain_client.py` 与 `tool_binding.py`：LangChain 如何绑定原有工具契约，如何把 AIMessage 解码成单动作并映射 usage；为何不用框架默认 shell/tool memory 替代工程边界。
 
 ## 尚未完成，不应包装成现成功能

@@ -2,9 +2,28 @@
 
 ## 当前状态
 
-仓库已经具备一套冻结的 `resume-v1` 真实模型微任务评测器，但截至本段落更新时尚未发起付费请求。它固定使用 DeepSeek Flash 非思考模式、`baseline` preset 和 12 个 Python 微任务；每个任务只运行一次，不会挑选成功样本或自动重跑失败任务。
+仓库已经完成一次冻结的 `resume-v1` 真实模型微任务评测。它固定使用 DeepSeek Flash 非思考模式、`baseline` preset 和 12 个 Python 微任务；每个任务只运行一次，没有挑选成功样本或自动重跑失败任务。
 
 早期的 `benchmarks/baseline-scripted.json` 仍只是 3/3 脚本驱动工程演示：编辑动作和 token 值是预设的，不能用于宣传自主编码能力、真实费用或 token 节省。
+
+## 2026-09-16 真实运行结果
+
+脱敏原始报告见 [`benchmarks/deepseek-live-resume-v1.json`](../benchmarks/deepseek-live-resume-v1.json)。运行对应 Git commit `701a6401572a886f765c59ddc4d526355c6c51f1`，UTC 时间为 05:57:50–05:59:23。
+
+| 指标 | 观测值 |
+|---|---:|
+| 完整任务成功（finish + patch apply + hidden oracle） | 0/12 |
+| 补丁通过 hidden oracle | 6/12 |
+| 尝试任务 | 12/12，未提前停止 |
+| Agent 状态 | 8 step limit；4 token budget limit |
+| 失败类别 | 6 agent protocol failed；6 hidden oracle failed |
+| Reported tokens | 74,506（input 72,938；output 1,568；auxiliary 0） |
+| 中位 steps / Agent elapsed | 8 / 6,254.5 ms |
+| 可信费用 | 未知，报告为 `null` |
+
+0/12 不是隐藏判题器全部失败：`off-by-one`、`change-contract`、`add-regression-test`、`empty-mean`、`optional-display-name` 和 `stable-priority` 的补丁都通过了 fresh-copy hidden oracle，但模型没有发出合法 finish，因此按预先冻结的成功定义仍判失败。12 个 Run 共记录 30 次合法模型动作和 55 次 `format_error`；没有一个 Run 执行 visible pytest。该结果暴露的首要问题是 DeepSeek/tool-call 格式与终止协议兼容性，而不是可以对外宣传的编码成功率。
+
+运行后验证了任务顺序、全部 patch hash、events/summary/patch/judge 产物完整性；精确密钥扫描为 `SECRET_LEAK_FOUND=false`。本次结果不会自动重跑。任何修复后的第二轮都需要新的明确付费批准，并作为独立报告保留，不能覆盖本报告。
 
 ## 一次性付费命令
 
