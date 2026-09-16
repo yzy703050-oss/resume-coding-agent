@@ -79,6 +79,10 @@ def fake_report(
         evaluator_version="resume-v1.0",
         suite_name="resume-v1",
         sample_size=12,
+        project_commit="a" * 40,
+        python_version="3.14.6",
+        package_versions={"baseline-coding-agent": "0.1.0"},
+        provider_sdk_max_retries=1,
         manifest_sha256="1" * 64,
         provider="deepseek",
         model="deepseek-flash",
@@ -183,6 +187,7 @@ def test_cli_writes_report_atomically_without_printing_secret(
     monkeypatch.setattr(live, "load_deepseek_key", lambda root: fake_key)
     monkeypatch.setattr(live, "load_live_suite", lambda *args: resume_suite)
     monkeypatch.setattr(live, "run_live_suite", lambda *args, **kwargs: fake_report)
+    monkeypatch.setattr(live, "require_clean_worktree", lambda root: None)
 
     exit_code = live.main(
         [
@@ -234,3 +239,14 @@ def test_evaluator_failure_stops_without_becoming_an_ordinary_task_failure(
     assert called_task_ids == ["off-by-one"]
     assert report.stop_reason == "canary_infrastructure_failure"
     assert report.results == ()
+
+
+def test_confirmation_precedes_clean_worktree_check(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        live,
+        "require_clean_worktree",
+        lambda root: (_ for _ in ()).throw(AssertionError("must not inspect before confirmation")),
+    )
+    assert live.main(["--project-root", str(tmp_path)]) == 2

@@ -5,9 +5,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import platform
 import sys
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Literal, Protocol
 
@@ -23,6 +25,7 @@ from coding_agent.evaluation.trusted_oracle import judge_patch
 from coding_agent.models.base import ModelClient
 from coding_agent.models.langchain_client import create_langchain_model
 from coding_agent.models.openai_compatible import ModelTransportError
+from coding_agent.tools.git import GitError, current_head, require_clean_worktree
 
 LIVE_LIMITS: dict[str, str | int | bool] = {
     "max_steps": 8,
@@ -69,6 +72,10 @@ class LiveEvaluationReport(BaseModel):
     evaluator_version: Literal["resume-v1.0"]
     suite_name: str
     sample_size: int
+    project_commit: str
+    python_version: str
+    package_versions: dict[str, str]
+    provider_sdk_max_retries: int
     manifest_sha256: str
     provider: Literal["deepseek"]
     model: Literal["deepseek-flash"]
@@ -110,6 +117,7 @@ def run_live_suite(
     workspace.mkdir(parents=True, exist_ok=True)
     execute = task_executor or _execute_task
     started_at = datetime.now(UTC)
+    project_commit = _project_commit(project_root)
     results: list[LiveTaskResult] = []
     attempted_tasks = 0
     stop_reason: str | None = None
@@ -132,6 +140,10 @@ def run_live_suite(
         evaluator_version="resume-v1.0",
         suite_name=suite.name,
         sample_size=len(suite.tasks),
+        project_commit=project_commit,
+        python_version=platform.python_version(),
+        package_versions=_package_versions(),
+        provider_sdk_max_retries=1,
         manifest_sha256=_manifest_hash(suite),
         provider="deepseek",
         model="deepseek-flash",
@@ -227,6 +239,30 @@ def _manifest_hash(suite: LiveSuite) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _project_commit(project_root: Path) -> str:
+    try:
+        return current_head(project_root)
+    except GitError:
+        return "unavailable"
+
+
+def _package_versions() -> dict[str, str]:
+    names = (
+        "baseline-coding-agent",
+        "langchain",
+        "langgraph",
+        "langchain-deepseek",
+        "pydantic",
+    )
+    versions: dict[str, str] = {}
+    for name in names:
+        try:
+            versions[name] = version(name)
+        except PackageNotFoundError:
+            versions[name] = "unavailable"
+    return versions
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", type=Path, default=Path.cwd())
@@ -247,6 +283,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         project_root = args.project_root.resolve(strict=True)
+        require_clean_worktree(project_root)
         key = load_deepseek_key(project_root)
         suite = load_live_suite(
             project_root / "tests" / "fixtures" / "live_tasks" / "resume-v1",

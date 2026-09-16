@@ -64,6 +64,9 @@ def test_one_task_flows_through_real_runner_patch_and_trusted_oracle(
     assert report.results[0].visible_test_result is True
     assert report.evaluator_version == "resume-v1.0"
     assert report.sample_size == 1
+    assert report.python_version
+    assert report.package_versions["baseline-coding-agent"] == "0.1.0"
+    assert report.provider_sdk_max_retries == 1
     assert report.results[0].input_tokens == 33
     assert report.results[0].output_tokens == 12
     assert len(seen) == 1
