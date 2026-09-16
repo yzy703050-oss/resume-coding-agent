@@ -34,6 +34,7 @@ packages = ["src/coding_agent"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+norecursedirs = ["tests/fixtures/hidden_oracles"]
 
 [tool.ruff]
 line-length = 100
