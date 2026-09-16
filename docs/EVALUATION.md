@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-仓库已经完成一次冻结的 `resume-v1` 真实模型微任务评测。它固定使用 DeepSeek Flash 非思考模式、`baseline` preset 和 12 个 Python 微任务；每个任务只运行一次，没有挑选成功样本或自动重跑失败任务。
+仓库已经完成两次独立的 `resume-v1` 真实模型微任务评测。两轮均固定使用 DeepSeek Flash 非思考模式、`baseline` preset 和同一批 12 个 Python 微任务；每轮的每个任务只运行一次，没有挑选成功样本或自动重跑失败任务。
 
 早期的 `benchmarks/baseline-scripted.json` 仍只是 3/3 脚本驱动工程演示：编辑动作和 token 值是预设的，不能用于宣传自主编码能力、真实费用或 token 节省。
 
@@ -27,7 +27,26 @@
 
 ## 运行后的离线协议改进
 
-本次真实评测结束后，离线修正了三个协议层问题：模型格式异常会以固定的安全原因码记录（缺少/多个/无效工具调用、参数无效或 SDK 解析失败等），并在下一步提供不包含原始模型响应的纠错提示；已经通过结构化工具绑定提供的 schema 不再重复复制到 system prompt；合法 `finish` 即使使当次已报告 token 达到预算，也会记为完成，而不是被事后预算检查覆盖。非 `finish` 动作达到预算时仍停止执行；格式错误仍占用决策步数。以上改动仅经过离线测试，**没有对 DeepSeek 发起新的付费调用**，也不能倒推旧报告中 55 次格式错误的精确子类。历史 0/12 结果保持不变。
+首轮结束后、第二轮开始前，离线修正了三个协议层问题：模型格式异常会以固定的安全原因码记录（缺少/多个/无效工具调用、参数无效或 SDK 解析失败等），并在下一步提供不包含原始模型响应的纠错提示；已经通过结构化工具绑定提供的 schema 不再重复复制到 system prompt；合法 `finish` 即使使当次已报告 token 达到预算，也会记为完成，而不是被事后预算检查覆盖。非 `finish` 动作达到预算时仍停止执行；格式错误仍占用决策步数。这一阶段只进行了离线测试，不能倒推首轮 55 次格式错误的精确子类。首轮历史 0/12 结果保持不变。
+
+## 2026-09-16 第二轮真实运行结果
+
+用户单独批准后，按 commit `d520203ee260278cc13be8a2f786b6596957add7` 运行同一份冻结的 `resume-v1`；manifest SHA-256 与首轮相同。UTC 时间为 11:05:19–11:06:45，脱敏报告见 [`benchmarks/deepseek-live-resume-v2.json`](../benchmarks/deepseek-live-resume-v2.json)。
+
+| 指标 | 第二轮观测值 | 首轮观测值 |
+|---|---:|---:|
+| 完整任务成功（finish + patch apply + hidden oracle） | 6/12 | 0/12 |
+| 补丁通过 hidden oracle | 10/12 | 6/12 |
+| 尝试任务 | 12/12，未提前停止 | 12/12，未提前停止 |
+| Agent 状态 | 6 completed；6 token budget limit | 8 step limit；4 token budget limit |
+| 失败类别 | 4 agent protocol failed；2 hidden oracle failed | 6 agent protocol failed；6 hidden oracle failed |
+| Reported tokens | 117,826（input 113,598；output 4,228；auxiliary 0） | 74,506 |
+| 中位 steps / Agent elapsed | 6 / 5,557.5 ms | 8 / 6,254.5 ms |
+| 可信费用 | 未知，报告为 `null` | 未知，报告为 `null` |
+
+第二轮 58 次合法模型动作、19 次 `format_error`；19 次均标为 `multiple_tool_calls`。有 3 个 Run 执行 visible pytest，结果均通过。`parse-port`、`normalize-tags`、`category-totals`、`optional-display-name` 的补丁通过隐藏判题，但因预算内没有正常 finish，严格成功仍为 false；`json-omit-none` 和 `package-export` 的补丁未通过隐藏判题。此次改进和结果存在时间上的先后关系，但一次非配对随机试验不能证明提升完全由某个修复导致，也不能外推到通用编码任务。
+
+运行前完整离线门禁为 188 tests passed、Ruff、mypy、OpenSpec 严格校验通过。运行后复核了两轮任务顺序相同、12 个 patch SHA-256 均匹配、events/summary/patch/judge 产物完整；对新报告及第二轮运行目录中的 802 个文件扫描配置的精确密钥，`SECRET_LEAK_FOUND=false`。首轮报告未被覆盖。第二轮也不会自动重跑；若要继续付费评测，需新的明确批准并使用新路径。
 
 ## 一次性付费命令
 
@@ -44,8 +63,12 @@ $env:PYTHONPATH = 'src'
 & '.venv/Scripts/python.exe' -m coding_agent.evaluation.live `
   --project-root . `
   --suite resume-v1 `
+  --workspace runs/live-deepseek-resume-NEW-ID `
+  --output benchmarks/deepseek-live-resume-NEW-ID.json `
   --confirm-paid-run
 ```
+
+运行前必须确认新 workspace 和 output 均不存在；省略这两个参数会使用首轮默认路径并可能覆盖旧报告。
 
 没有 `--confirm-paid-run` 时，程序会在读取密钥和构造模型前退出。`.env` 被 Git 忽略，密钥不会写入配置、事件、artifact 或汇总报告。默认原始轨迹写入忽略目录 `runs/live-deepseek-resume-v1/`，脱敏报告写入 `benchmarks/deepseek-live-resume-v1.json`。
 
