@@ -1,5 +1,7 @@
 ## 0. Design Approval Gate
 
+> 2026-09-15 audit: checked items below record the earlier implementation pass, not exhaustive acceptance. Outstanding design requirements are explicitly tracked in section 12; this change must not be called fully complete or archived until they are verified. Scripted preset runs are engineering checks, not model-quality evaluation.
+
 - [x] 0.1 Review `proposal.md`, `design.md`, and all delta specs; obtain the user's second explicit design approval before any prerequisite archival or implementation planning.
 - [x] 0.2 After approval, verify `build-coding-agent-mvp` is 4/4 complete and strictly valid, then archive it first so its capabilities become the main OpenSpec baseline.
 - [x] 0.3 Reconcile this change against the archived base capabilities, add required `MODIFIED` deltas, and run strict validation again.
@@ -80,3 +82,12 @@
 - [x] 11.3 Run a fresh Windows offline demo for baseline and full presets and inspect events, database placement, patch, summary, and independent oracle.
 - [x] 11.4 Perform final architecture, persistence-safety, context-budget, failure-fallback, dependency, and scope review; add a failing regression test before every accepted fix.
 - [x] 11.5 Record exact verification evidence and stop before archive/merge decisions.
+
+## 12. Outstanding acceptance gaps (not part of the zero-paid-evaluation resume slice)
+
+- [ ] 12.1 Enforce final rendered context overhead, runtime section allocation and recent/latest retention priorities.
+- [ ] 12.2 Validate candidate content against canonical evidence, beyond sequence/path membership.
+- [ ] 12.3 Constrain Repo Map symlink/ignored paths and add scan diagnostics/timing.
+- [ ] 12.4 Complete SQLite schema-forward checks, lifecycle and graceful degradation diagnostics.
+- [ ] 12.5 Complete auxiliary per-request hard reservations and failure-attempt accounting before production LLM wiring.
+- [ ] 12.6 Build evaluator-owned hidden-test isolation before reporting autonomous model outcomes. Real evaluation remains deferred by user request; full remains opt-in.

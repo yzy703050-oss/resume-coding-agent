@@ -64,7 +64,11 @@ def run_scripted_baseline(tasks_root: Path, workspace: Path) -> dict[str, object
         evaluate_fixture(manifest, workspace, ScriptedModelClient(_responses(manifest)))
         for manifest in manifests
     ]
-    return aggregate_results(results)
+    report = aggregate_results(results)
+    report["evaluation_kind"] = "scripted_runtime_regression"
+    report["autonomous_success_rate"] = None
+    report["model_usage_is_synthetic"] = True
+    return report
 
 
 def run_scripted_presets(

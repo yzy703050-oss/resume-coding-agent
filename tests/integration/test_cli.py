@@ -98,7 +98,12 @@ def test_cli_runs_scripted_agent_and_prints_artifacts(tmp_path: Path) -> None:
     assert summary["latest_test_result"]["ok"] is True
     assert summary["configuration"] == {
         "model": "gpt-5",
+        "provider": "openai-compatible",
+        "orchestrator": "langgraph",
+        "model_adapter": "scripted",
         "base_url": "https://api.openai.com/v1",
+        "max_output_tokens": 1024,
+        "thinking_enabled": None,
         "command_timeout_seconds": 60.0,
         "context_max_chars": 24000,
         "pinned_max_chars": 12000,
@@ -122,6 +127,158 @@ def test_cli_help_documents_limits_and_trust_boundary() -> None:
     assert result.exit_code == 0
     for phrase in ["--task", "--model", "--base-url", "--max-steps", "--timeout", "trusted"]:
         assert phrase in result.stdout.lower()
+
+
+def test_deepseek_preset_is_recorded_without_exposing_environment_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = clean_repo(tmp_path)
+    script = tmp_path / "finish.json"
+    script.write_text('[{"action":{"kind":"finish","summary":"done"}}]', encoding="utf-8")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "deepseek-test-secret")
+    artifacts = tmp_path / "artifacts"
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            str(repo),
+            "--task",
+            "fix",
+            "--provider",
+            "deepseek",
+            "--script",
+            str(script),
+            "--artifacts-dir",
+            str(artifacts),
+            "--max-output-tokens",
+            "512",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    summary = next(artifacts.glob("*/summary.json")).read_text(encoding="utf-8")
+    config = json.loads(summary)["configuration"]
+    assert config["model"] == "deepseek-flash"
+    assert config["base_url"] == "https://api.deepseek.com"
+    assert config["max_output_tokens"] == 512
+    assert config["thinking_enabled"] is False
+    assert "deepseek-test-secret" not in summary
+
+
+def test_live_cli_uses_langchain_inside_graph_with_mock_http(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import httpx
+
+    import coding_agent.cli as cli
+    from coding_agent.models.langchain_client import create_langchain_model
+
+    repo = clean_repo(tmp_path)
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "id": "cli-response",
+                "object": "chat.completion",
+                "created": 1,
+                "model": "deepseek-flash",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "tool_calls",
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "id": "finish-1",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "finish",
+                                        "arguments": '{"summary":"done"}',
+                                    },
+                                }
+                            ],
+                        },
+                    }
+                ],
+                "usage": {"prompt_tokens": 5, "completion_tokens": 3, "total_tokens": 8},
+            },
+        )
+
+    monkeypatch.setattr(
+        cli,
+        "create_langchain_model",
+        lambda config: create_langchain_model(
+            config,
+            http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+        ),
+    )
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "offline-live-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "wrong-provider-key")
+    artifacts = tmp_path / "artifacts"
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            str(repo),
+            "--task",
+            "inspect",
+            "--provider",
+            "deepseek",
+            "--artifacts-dir",
+            str(artifacts),
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert len(seen) == 1
+    assert seen[0].headers["authorization"] == "Bearer offline-live-key"
+    summary_text = next(artifacts.glob("*/summary.json")).read_text(encoding="utf-8")
+    summary = json.loads(summary_text)
+    assert summary["configuration"]["orchestrator"] == "langgraph"
+    assert summary["configuration"]["model_adapter"] == "langchain"
+    assert summary["usage"]["combined_total_tokens"] == 8
+    assert "offline-live-key" not in summary_text
+
+
+def test_injected_scripted_model_is_not_reported_as_live_langchain(tmp_path: Path) -> None:
+    from coding_agent.agent.actions import FinishAction
+    from coding_agent.cli import build_runner
+    from coding_agent.config import RunConfig
+    from coding_agent.models.base import ModelResponse
+    from coding_agent.models.scripted import ScriptedModelClient
+
+    built = build_runner(
+        RunConfig(repository=clean_repo(tmp_path), task="inspect", artifacts_dir=tmp_path / "runs"),
+        ScriptedModelClient([ModelResponse(action=FinishAction(summary="done"))]),
+    )
+    built.runner.run(built.state)
+    assert built.state.effective_config["model_adapter"] == "scripted"
+    assert built.state.effective_config["model_mode"] == "scripted"
+
+
+def test_programmatic_deepseek_config_records_effective_non_thinking(tmp_path: Path) -> None:
+    from pydantic import SecretStr
+
+    from coding_agent.cli import build_runner
+    from coding_agent.config import RunConfig
+
+    built = build_runner(
+        RunConfig(
+            repository=clean_repo(tmp_path),
+            task="inspect",
+            artifacts_dir=tmp_path / "runs",
+            provider="deepseek",
+            model="deepseek-flash",
+            base_url="https://api.deepseek.com",
+            api_key=SecretStr("offline-constructor-key"),
+        )
+    )
+    assert built.state.effective_config["thinking_enabled"] is False
 
 
 def test_invalid_script_does_not_create_partial_run_directory(tmp_path: Path) -> None:

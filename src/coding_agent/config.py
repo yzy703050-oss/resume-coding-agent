@@ -12,9 +12,12 @@ class RunConfig(BaseModel):
 
     repository: Path
     task: str
+    provider: Literal["openai-compatible", "deepseek"] = "openai-compatible"
     model: str = "gpt-5"
     base_url: str = "https://api.openai.com/v1"
     api_key: SecretStr | None = None
+    max_output_tokens: int = Field(default=1024, ge=1, le=8192)
+    thinking_enabled: bool | None = None
     max_steps: int = Field(default=20, ge=1)
     max_tokens: int | None = Field(default=None, ge=1)
     max_cost_usd: float | None = Field(default=None, gt=0)

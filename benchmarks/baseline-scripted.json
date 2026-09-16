@@ -1,4 +1,7 @@
 {
+  "evaluation_kind": "scripted_runtime_regression",
+  "autonomous_success_rate": null,
+  "model_usage_is_synthetic": true,
   "tasks": 3,
   "successes": 3,
   "success_rate": 1.0,

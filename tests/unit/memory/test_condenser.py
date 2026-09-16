@@ -94,3 +94,13 @@ def test_llm_condenser_enforces_cooldown_for_unchanged_prefix() -> None:
     assert first.summary is not None and first.summary.revision == 1
     assert second.fallback_reason == "cooldown"
     assert client.calls == 1
+
+
+def test_sliding_summary_is_bounded_without_truncating_recent_events() -> None:
+    result = SlidingWindowCondenser(keep_recent=2, max_summary_chars=80).condense(
+        view(100), "run-1"
+    )
+    assert result.summary is not None
+    assert len(result.summary.content) <= 80
+    assert result.summary.source_event_count == 98
+    assert [event.source_sequence for event in result.view.events] == [99, 100]

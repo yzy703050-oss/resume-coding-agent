@@ -32,17 +32,26 @@ class NoOpCondenser:
 @dataclass(frozen=True)
 class SlidingWindowCondenser:
     keep_recent: int
+    max_summary_chars: int = 2000
 
     def __post_init__(self) -> None:
         if self.keep_recent < 0:
             raise ValueError("keep_recent cannot be negative")
+        if self.max_summary_chars < 1:
+            raise ValueError("max_summary_chars must be positive")
 
     def condense(self, view: HistoryView, run_id: str) -> CondensationResult:
         split = _safe_split(view.events, self.keep_recent)
         old, recent = view.events[:split], view.events[split:]
         if not old:
             return CondensationResult(HistoryView(recent))
-        summary = _summary(run_id, old, _render_events(old), "sliding-window")
+        # This is bounded evidence, not an LLM-quality semantic summary.
+        header = f"Events {old[0].source_sequence}-{old[-1].source_sequence} ({len(old)} total)\n"
+        snippets = "\n".join(
+            f"{event.source_sequence}:{event.kind}:{event.content[:160]}" for event in old[-8:]
+        )
+        content = (header + snippets)[: self.max_summary_chars]
+        summary = _summary(run_id, old, content, "sliding-window")
         return CondensationResult(HistoryView(recent), summary)
 
 

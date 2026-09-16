@@ -37,7 +37,7 @@ from coding_agent.memory.processors import (
 )
 from coding_agent.memory.working import WorkingMemory
 from coding_agent.models.base import ModelClient, ModelResponse
-from coding_agent.models.openai_compatible import OpenAICompatibleClient
+from coding_agent.models.langchain_client import LangChainModelClient, create_langchain_model
 from coding_agent.models.scripted import ScriptedModelClient
 from coding_agent.repository.repomap import PythonRepoMap
 from coding_agent.tools.git import GitError, current_head, git_diff, require_clean_worktree
@@ -69,6 +69,14 @@ def build_runner(config: RunConfig, model_client: ModelClient | None = None) -> 
     if artifact_root.is_relative_to(repository):
         raise ValueError("artifact directory must be outside the target repository")
     model = model_client or _model_from_config(config)
+    scripted = isinstance(model, ScriptedModelClient)
+    model_adapter = (
+        "scripted"
+        if scripted
+        else "langchain"
+        if isinstance(model, LangChainModelClient)
+        else "custom"
+    )
     state = RunState.start(
         repository,
         config.task,
@@ -80,11 +88,20 @@ def build_runner(config: RunConfig, model_client: ModelClient | None = None) -> 
         ),
         effective_config={
             "model": config.model,
+            "provider": config.provider,
+            "orchestrator": "langgraph",
+            "model_adapter": model_adapter,
             "base_url": config.base_url,
+            "max_output_tokens": config.max_output_tokens,
+            "thinking_enabled": (
+                False
+                if isinstance(model, LangChainModelClient) and config.provider == "deepseek"
+                else config.thinking_enabled
+            ),
             "command_timeout_seconds": config.command_timeout_seconds,
             "context_max_chars": config.context_max_chars,
             "pinned_max_chars": config.pinned_max_chars,
-            "model_mode": "scripted" if config.script is not None else "live",
+            "model_mode": "scripted" if scripted else "live",
             "memory_preset": config.memory_preset,
             "auxiliary_max_calls": config.auxiliary_max_calls,
             "auxiliary_max_tokens": config.auxiliary_max_tokens,
@@ -137,6 +154,7 @@ def build_runner(config: RunConfig, model_client: ModelClient | None = None) -> 
         project_store,
         DeterministicProjectMemoryCandidateExtractor() if project_memory_enabled else None,
         SlidingWindowCondenser(keep_recent=8) if condenser_enabled else None,
+        secrets=tuple(secrets),
     )
     runner = AgentRunner(
         model,
@@ -159,22 +177,26 @@ def _model_from_config(config: RunConfig) -> ModelClient:
             raise ValueError(f"invalid scripted model file: {error}") from error
     if config.api_key is None:
         raise ValueError("API key is required unless --script is supplied")
-    return OpenAICompatibleClient(config.api_key.get_secret_value(), config.model, config.base_url)
+    return create_langchain_model(config)
 
 
 @app.command()
 def run(
     repository: Annotated[Path, typer.Argument(help="Trusted local Git repository")],
     task: Annotated[str, typer.Option("--task", help="Coding task or issue")],
-    model: Annotated[str, typer.Option("--model", help="Model identifier")] = "gpt-5",
+    provider: Annotated[
+        Literal["openai-compatible", "deepseek"], typer.Option("--provider")
+    ] = "openai-compatible",
+    model: Annotated[str | None, typer.Option("--model", help="Model identifier")] = None,
     base_url: Annotated[
-        str, typer.Option("--base-url", help="OpenAI-compatible API base URL")
-    ] = "https://api.openai.com/v1",
+        str | None, typer.Option("--base-url", help="OpenAI-compatible API base URL")
+    ] = None,
     api_key: Annotated[
         str | None, typer.Option("--api-key", help="API key; prefer environment")
     ] = None,
     max_steps: Annotated[int, typer.Option("--max-steps", min=1)] = 20,
     max_tokens: Annotated[int | None, typer.Option("--max-tokens", min=1)] = None,
+    max_output_tokens: Annotated[int, typer.Option("--max-output-tokens", min=1, max=8192)] = 1024,
     timeout: Annotated[float, typer.Option("--timeout", min=0.1, max=600)] = 60,
     context_limit: Annotated[int, typer.Option("--context-limit", min=400)] = 24_000,
     memory_preset: Annotated[
@@ -189,12 +211,17 @@ def run(
 ) -> None:
     """Run on a trusted repository. Local command execution is not a sandbox."""
     try:
-        raw_api_key = api_key or os.getenv("OPENAI_API_KEY")
+        deepseek = provider == "deepseek"
+        raw_api_key = api_key or os.getenv("DEEPSEEK_API_KEY" if deepseek else "OPENAI_API_KEY")
         config = RunConfig(
             repository=repository,
             task=task,
-            model=model,
-            base_url=base_url,
+            provider=provider,
+            model=model or ("deepseek-flash" if deepseek else "gpt-5"),
+            base_url=base_url
+            or ("https://api.deepseek.com" if deepseek else "https://api.openai.com/v1"),
+            max_output_tokens=max_output_tokens,
+            thinking_enabled=False if deepseek else None,
             api_key=SecretStr(raw_api_key) if raw_api_key else None,
             max_steps=max_steps,
             max_tokens=max_tokens,

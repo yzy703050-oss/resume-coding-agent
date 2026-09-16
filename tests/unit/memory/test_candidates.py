@@ -12,7 +12,7 @@ from coding_agent.memory.candidates import (
     ProjectMemoryCandidate,
     ProjectMemoryType,
 )
-from coding_agent.memory.promotion import ProjectMemoryPromotionPipeline
+from coding_agent.memory.promotion import CandidateSanitizer, ProjectMemoryPromotionPipeline
 
 
 def candidate(**changes: object) -> ProjectMemoryCandidate:
@@ -96,3 +96,12 @@ def test_llm_extractor_rejects_malformed_structured_output() -> None:
         AuxiliaryModelGateway(client, AuxiliaryBudget(1, 100), RunUsageLedger())  # type: ignore[arg-type]
     )
     assert extractor.extract(DeterministicExtractionInput("run-1", "summary", 1)) == ()
+
+
+def test_sanitizer_redacts_secret_before_length_boundary_can_expose_prefix() -> None:
+    result = CandidateSanitizer(("SECRET-123456",), max_content_chars=12).sanitize(
+        candidate(content="prefix SECRET-123456 suffix")
+    )
+    assert result is not None
+    assert "SECRE" not in result.content
+    assert len(result.content) <= 12

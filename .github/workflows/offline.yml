@@ -1,0 +1,16 @@
+name: Offline engineering checks
+on: [push, pull_request]
+jobs:
+  offline:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest -q
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy src/coding_agent
+      - run: python -m coding_agent.evaluation.plan

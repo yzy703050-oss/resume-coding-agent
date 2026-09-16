@@ -105,3 +105,25 @@ def test_adapter_retries_transient_status_but_not_terminal_status() -> None:
     with pytest.raises(ModelTransportError) as captured:
         terminal.complete([], [])
     assert "secret" not in str(captured.value)
+
+
+def test_deepseek_request_disables_thinking_and_caps_generated_tokens() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return response("finish", {"summary": "done"})
+
+    client = OpenAICompatibleClient(
+        "secret",
+        "deepseek-flash",
+        "https://api.deepseek.com",
+        httpx.Client(transport=httpx.MockTransport(handler)),
+        max_output_tokens=512,
+        thinking_enabled=False,
+    )
+    assert client.complete([Message("user", "fix")], []).action.kind == "finish"
+    payload = json.loads(seen[0].content)
+    assert seen[0].url == "https://api.deepseek.com/chat/completions"
+    assert payload["max_tokens"] == 512
+    assert payload["thinking"] == {"type": "disabled"}

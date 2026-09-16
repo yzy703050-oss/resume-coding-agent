@@ -25,14 +25,21 @@ class OpenAICompatibleClient:
         base_url: str,
         http_client: httpx.Client | None = None,
         max_retries: int = 2,
+        *,
+        max_output_tokens: int = 1024,
+        thinking_enabled: bool | None = None,
     ) -> None:
         if not api_key or not model:
             raise ValueError("api_key and model are required")
+        if max_output_tokens < 1:
+            raise ValueError("max_output_tokens must be positive")
         self._api_key = api_key
         self._model = model
         self._url = base_url.rstrip("/") + "/chat/completions"
         self._http = http_client or httpx.Client(timeout=60)
         self._max_retries = max_retries
+        self._max_output_tokens = max_output_tokens
+        self._thinking_enabled = thinking_enabled
 
     def complete(
         self, messages: list[Message], tool_schemas: list[dict[str, JsonValue]]
@@ -106,12 +113,16 @@ class OpenAICompatibleClient:
                 },
             }
         )
-        return {
+        payload: dict[str, Any] = {
             "model": self._model,
             "messages": [{"role": item.role, "content": item.content} for item in messages],
             "tools": tools,
             "tool_choice": "required",
+            "max_tokens": self._max_output_tokens,
         }
+        if self._thinking_enabled is not None:
+            payload["thinking"] = {"type": "enabled" if self._thinking_enabled else "disabled"}
+        return payload
 
     def _post(self, payload: dict[str, Any]) -> httpx.Response:
         for attempt in range(self._max_retries + 1):

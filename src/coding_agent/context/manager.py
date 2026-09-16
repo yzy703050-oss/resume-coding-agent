@@ -47,6 +47,7 @@ class ContextManager:
     project_memory_selections: int = 0
     candidate_proposals: int = 0
     candidate_rejections: int = 0
+    secrets: tuple[str, ...] = ()
 
     def start_run(self) -> None:
         if self.repo_map is not None:
@@ -57,7 +58,7 @@ class ContextManager:
         remaining_tokens = (
             "unlimited"
             if state.limits.max_tokens is None
-            else str(max(0, state.limits.max_tokens - state.usage.total_tokens))
+            else str(max(0, state.limits.max_tokens - state.total_tokens))
         )
         system = (
             "You are a coding agent. Use exactly one supplied tool per step or finish. "
@@ -224,6 +225,7 @@ class ContextManager:
             state.run_id,
             frozenset(event.source_sequence for event in self.episodic.events),
             valid_paths,
+            secrets=self.secrets,
         )
         candidates = self.candidate_extractor.extract(source)
         self.candidate_proposals += len(candidates)

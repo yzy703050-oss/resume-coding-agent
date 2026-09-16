@@ -33,11 +33,11 @@ class CandidateSanitizer:
     max_content_chars: int = 2000
 
     def sanitize(self, candidate: ProjectMemoryCandidate) -> ProjectMemoryCandidate | None:
-        content = candidate.content[: self.max_content_chars]
-        for secret in self.secrets:
+        content = candidate.content
+        for secret in sorted(self.secrets, key=len, reverse=True):
             if secret:
                 content = content.replace(secret, "[REDACTED]")
-        content = " ".join(content.split())
+        content = " ".join(content.split())[: self.max_content_chars]
         return replace(candidate, content=content) if content else None
 
 

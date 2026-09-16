@@ -1,6 +1,6 @@
 # Coding Agent with Hierarchical Context and Memory
 
-A small, inspectable Coding Agent that turns a task against a clean local Git repository into a tested patch and an auditable trajectory. The project is deliberately a baseline: its complete control loop fits in one runner, its tools are deterministic, and its claims are checked by tests and independent evaluation rather than model prose.
+A small, inspectable Coding Agent using **LangGraph** for a single-agent ReAct workflow and **LangChain** for model integration. It operates on a clean local Git repository and produces a patch, available test evidence and an auditable trajectory. Framework orchestration does not replace the project's tool policy, hierarchical memory or finalization boundaries.
 
 ## Why this repository is useful
 
@@ -16,8 +16,10 @@ The current deterministic baseline solves all three included micro-tasks (3/3). 
 
 ```mermaid
 flowchart TD
-    CLI["CLI / preset composition"] --> RUNNER["Single-action AgentRunner"]
-    RUNNER -->|prepare| CM["ContextManager"]
+    CLI["CLI / preset composition"] --> RUNNER["AgentRunner: lifecycle + exception handling"]
+    RUNNER --> GUARD["LangGraph: budget guard"]
+    GUARD -->|allowed| PREPARE["prepare node"]
+    PREPARE --> CM["ContextManager"]
     CM --> WM["L1 WorkingMemory"]
     CM --> EP["L2 EpisodicMemory"]
     EP --> PIPE["Immutable history processors"]
@@ -27,21 +29,33 @@ flowchart TD
     ID["Versioned project_id"] --> STORE
     CM --> SELECT["ContextSelector + budgets"]
     SELECT --> BUILD["Formatting-only ContextBuilder"]
-    BUILD --> MODEL["ModelClient"]
-    MODEL --> RUNNER
-    RUNNER --> TOOLS["Fixed six-tool registry"]
+    BUILD --> DECIDE["decide node"]
+    DECIDE --> MODEL["LangChainModelClient / ScriptedModelClient"]
+    MODEL -->|one tool action| EXECUTE["execute node"]
+    MODEL -->|format error| GUARD
+    MODEL -->|finish / budget stop| DONE["Graph END"]
+    GUARD -->|limit reached| DONE
+    EXECUTE --> TOOLS["Fixed six-tool registry"]
+    TOOLS --> OBSERVE["observe node: update working memory"]
+    OBSERVE --> GUARD
     TOOLS --> REC["RunEventRecorder"]
-    RUNNER --> REC
+    DECIDE --> REC
     REC --> CANON["Canonical in-memory event"]
     CANON --> HISTORY["History sanitization/projection"]
     HISTORY --> EP
     CANON --> AUDIT["Audit sanitization/truncation"]
     AUDIT --> JSONL["events.jsonl"]
-    RUNNER --> FINAL["Finalizer: sole terminal owner"]
+    DONE --> FINAL["Finalizer: sole terminal owner via AgentRunner"]
     FINAL --> PATCH["patch.diff + summary.json"]
 ```
 
 `Finalizer` remains the only component that may write `AgentFinished` or `AgentFailed`. Runtime facts are created once, then independently projected to richer secret-free episodic history and stricter audit JSONL. The model-facing history never reads the audit-truncated payload.
+
+The compiled graph has distinct `guard`, `prepare`, `decide`, `execute`, and `observe` nodes, composed as LangChain runnables. `AgentRunner` handles startup, exceptions and finalization around graph invocation; it no longer contains a handwritten ReAct loop. A business step counts one model decision, not one graph node. The recursion safety limit is derived from the configured business-step limit.
+
+Live CLI composition uses LangChain `init_chat_model`, `ChatDeepSeek` / `ChatOpenAI`, message conversion and `bind_tools`. Registry Pydantic schemas remain the single tool-definition source and actual execution still goes through the original policy-enforcing registry. No checkpoint or implicit remote LangSmith tracing is enabled. Direct graph state/stream output is internal and is not sanitized like audit artifacts.
+
+See [框架迁移阅读指南](docs/FRAMEWORK.md) for the node flow, code-reading sequence, verified dependency versions and retained boundaries.
 
 The default `baseline` preset preserves the small deterministic runtime. Opt-in presets are `processor`, `condenser`, `repo-map`, `project-memory`, and `full`. `full` enables deterministic processing/condensation, static Python symbols, and validated cross-run project memory; it is not the default and will not become the default without comparative evaluation.
 
@@ -81,16 +95,28 @@ To rerun the three-task independent baseline:
 python -m coding_agent.evaluation.baseline --output benchmarks/baseline-scripted.json
 ```
 
-## Live model run
+## DeepSeek low-budget configuration (live calls are opt-in)
 
 Only run trusted repositories: commands execute on the host and this MVP is **not a sandbox**.
 
 ```powershell
-$env:OPENAI_API_KEY = "your-key"
-coding-agent run C:\path\to\clean-repo --task "Fix issue #123 and run focused tests" --model gpt-5 --base-url https://api.openai.com/v1 --max-steps 20 --timeout 60
+$env:DEEPSEEK_API_KEY = "your-key"
+coding-agent run C:\path\to\clean-repo --task "Fix the issue and run focused tests" --provider deepseek --max-steps 8 --max-tokens 12000 --max-output-tokens 1024 --timeout 60
 ```
 
-Enable all V2 context sources explicitly with `--memory-preset full`. Auxiliary model features remain disabled unless configured with hard limits such as `--auxiliary-max-calls`, `--auxiliary-max-tokens`, and `--auxiliary-max-cost`.
+The DeepSeek preset uses `https://api.deepseek.com`, `deepseek-flash`, and disabled thinking. These defaults were checked against [official API documentation](https://api-docs.deepseek.com/) on 2026-09-15; override `--model` / `--base-url` when needed. The factory defaults to non-thinking for required tools and rejects explicitly enabled DeepSeek thinking because required tool choice is incompatible with it. Request compatibility is tested through actual LangChain SDKs with mock HTTP, not a paid end-to-end run. Custom OpenAI-compatible configuration remains available with `--provider openai-compatible` and `OPENAI_API_KEY`, now also using LangChain. The older direct HTTP adapter remains available for compatibility but is not the CLI default.
+
+Enable V2 context sources explicitly with `--memory-preset full`. The CLI only composes deterministic condensers/extractors; auxiliary LLM interfaces are extension seams, not enabled by budget flags. Output and step limits reduce exposure, but the post-response token threshold is not a billing hard cap.
+
+## Resume release and evaluation status
+
+This release runs no real-model benchmark and publishes no autonomous success rate or token-saving claim. Generate the read-only protocol with:
+
+```powershell
+python -m coding_agent.evaluation.plan
+```
+
+See [中文评测流程](docs/EVALUATION.md) for trusted hidden-test design, baseline/full ablations and budget semantics; see [简历描述与阅读路线](docs/RESUME.md) for honest project wording, interview topics and pending hardening. Offline engineering checks are configured in Windows CI, but CI execution itself is not claimed until the workflow runs.
 
 The target must be a Git repository with no staged or unstaged tracked changes. Configuration and artifacts never include the API key value. Use `coding-agent run --help` for all limits.
 
