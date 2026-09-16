@@ -95,7 +95,7 @@ To rerun the three-task independent baseline:
 python -m coding_agent.evaluation.baseline --output benchmarks/baseline-scripted.json
 ```
 
-## DeepSeek low-budget configuration (live calls are opt-in)
+## DeepSeek low-budget configuration and trusted evaluation
 
 Only run trusted repositories: commands execute on the host and this MVP is **not a sandbox**.
 
@@ -108,9 +108,21 @@ The DeepSeek preset uses `https://api.deepseek.com`, `deepseek-flash`, and disab
 
 Enable V2 context sources explicitly with `--memory-preset full`. The CLI only composes deterministic condensers/extractors; auxiliary LLM interfaces are extension seams, not enabled by budget flags. Output and step limits reduce exposure, but the post-response token threshold is not a billing hard cap.
 
+The frozen `resume-v1` evaluator adds a stronger path than the single-repository CLI: 12 tasks run once each, generated patches are transferred to fresh judge repositories, and evaluator-owned hidden tests are installed only after transfer. It requires an ignored root `.env` and an explicit paid-run flag:
+
+```powershell
+$env:PYTHONPATH = 'src'
+& '.venv/Scripts/python.exe' -m coding_agent.evaluation.live `
+  --project-root . `
+  --suite resume-v1 `
+  --confirm-paid-run
+```
+
+The fixed live limits are DeepSeek Flash non-thinking, baseline memory, 8 decisions, 512 output tokens per request, an 8000 reported-token Run threshold, and zero auxiliary calls. A connectivity/infrastructure canary stops later calls; ordinary task failures remain in the denominator. CNY 15 is the operator authorization, not a billing hard limit. See [the evaluation protocol](docs/EVALUATION.md) before running it.
+
 ## Resume release and evaluation status
 
-This release runs no real-model benchmark and publishes no autonomous success rate or token-saving claim. Generate the read-only protocol with:
+The trusted 12-task live evaluator is implemented and offline-verified; until its sanitized report is checked in, this release still publishes no real-model success rate or token-saving claim. Generate the older read-only protocol with:
 
 ```powershell
 python -m coding_agent.evaluation.plan

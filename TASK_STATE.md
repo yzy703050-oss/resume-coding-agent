@@ -1,6 +1,6 @@
 # Coding Agent V2 — Task State
 
-Last updated: 2026-09-14 (Asia/Shanghai)
+Last updated: 2026-09-16 (Asia/Shanghai)
 
 ## Objective
 
@@ -43,8 +43,21 @@ The earlier checklist overstated coverage: the architecture is implemented as a 
 
 Current approved scope: explicit DeepSeek preset/output cap, bounded deterministic summary, redact-before-truncate candidate sanitization, runtime secret propagation, combined remaining-token display, read-only evaluation protocol, honest scripted labels, Chinese evaluation/resume documentation and offline Windows CI. No paid calls, no real-model measurements. True metrics remain null.
 
-The change has not been archived, committed, merged, or pushed; integration remains a user decision.
+The V2 implementation and framework migration are committed and merged into local `main`. No push is claimed.
 
 Fresh resume-slice verification (2026-09-15): `pytest -q` 131 passed in 27.03s; Ruff lint passed; Ruff format check 116 files; strict mypy passed on 54 source files; strict OpenSpec 5 passed/0 failed; diff whitespace check passed (line-ending warnings only). Evaluation-plan CLI exited 0 with `not_run`, null metrics and `api_calls_made=0`. Windows CI is configured but has not run here. No DeepSeek or other paid model endpoint was called.
 
 Framework migration verification (later 2026-09-15): final production full suite 148 passed in 75.73s; one subsequently added malformed-function characterization passed separately (no implementation change), 149 tests now present. Ruff lint/format passed; mypy passed on 57 source files; OpenSpec 6 passed/0 failed; pip check and diff whitespace checks passed. Actual LangChain provider SDKs and CLI composition verified via mock HTTP only. Scripted framework smoke 3/3 is not autonomous success rate. Read-only review: no Critical/Important issues; one effective-config metadata Minor fixed with failing/passing regression. Dependencies and Python 3.14.6 local environment recorded in docs/FRAMEWORK.md; configured Python 3.12 CI remains unexecuted. Worktree preserved on feat/memory-engine; no commit/push/archive or paid call.
+
+## 2026-09-16 trusted live evaluation preparation
+
+- Frozen `resume-v1` contains exactly 12 ordered Python microtasks covering bug fixes, contract changes, regression tests, validation, collection transforms, package exports and recovery from a failing visible test.
+- Agent workspaces never contain hidden tests. The evaluator transfers only the generated patch to a fresh Git fixture, injects evaluator-owned tests there, and uses a mutation oracle for the regression-test task.
+- All 12 initial implementations fail their trusted oracle and all 12 gold patches pass in offline validation.
+- The paid CLI requires `--confirm-paid-run`, reads the ignored root `.env` only afterward, uses DeepSeek Flash non-thinking/baseline/8 steps/512 output/8000 reported tokens/zero auxiliary calls, and runs each task once.
+- The report separates protocol completion, patch applicability and oracle correctness; records manifest hash, project commit, environment versions, token/tool/latency evidence and keeps unavailable billing cost as `null`.
+- Canary authentication, transport or evaluator-infrastructure failure stops later calls. Ordinary task failures stay in the denominator and are not retried.
+
+Pre-run verification: focused evaluator gate 38 passed in 54.35s; full suite 184 passed in 104.22s. Ruff lint passed and 152 files were formatted; strict mypy passed on 61 source files; strict OpenSpec passed 6/6; diff whitespace check passed. The exact configured key was absent from tracked files and generated `runs/`/`benchmarks/` content (`SECRET_LEAK_FOUND=false`). During this gate, pytest's discovery was corrected to exclude evaluator-owned hidden-oracle source storage while the fresh-copy judge tests continued to execute it explicitly.
+
+Status at this checkpoint: evaluator implementation and pre-run verification are complete; the one authorized paid suite has not yet been executed.

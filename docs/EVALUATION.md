@@ -1,43 +1,81 @@
-# Coding Agent 评测流程（本版不执行真实测评）
+# Coding Agent 可信评测流程
 
-## 当前结论
+## 当前状态
 
-执行 runtime 现已为 LangGraph 状态图，live model 接入为 LangChain provider SDK；scripted fixtures 也走同一状态图。框架迁移不改变下文关于 hidden oracle、样本量和真实模型未测的边界。
+仓库已经具备一套冻结的 `resume-v1` 真实模型微任务评测器，但截至本段落更新时尚未发起付费请求。它固定使用 DeepSeek Flash 非思考模式、`baseline` preset 和 12 个 Python 微任务；每个任务只运行一次，不会挑选成功样本或自动重跑失败任务。
 
-本版交付评测协议与离线回归，不包含 DeepSeek 自主编码成功率。`baseline-scripted.json` 的 3/3 是预设正确编辑的运行时演示，token 字段是合成值，不能用于模型能力或费用宣传。现有 fixture 测试可见且可修改，不是可信 hidden-test benchmark。
+早期的 `benchmarks/baseline-scripted.json` 仍只是 3/3 脚本驱动工程演示：编辑动作和 token 值是预设的，不能用于宣传自主编码能力、真实费用或 token 节省。
 
-```powershell
-python -m coding_agent.evaluation.plan
-python -m pytest -q
+## 一次性付费命令
+
+在仓库根目录的忽略文件 `.env` 中配置：
+
+```dotenv
+DEEPSEEK_API_KEY=your-key
 ```
 
-第一个命令只读取 manifest、输出 JSON 协议，不创建模型客户端、不运行 agent、不创建项目、不联网。真实指标均为 `null` / `not_run`。第二个命令进行本地工程回归，包括脚本驱动 E2E，不调用收费模型。
+然后执行：
 
-## 将来真实测评的六步流程
+```powershell
+$env:PYTHONPATH = 'src'
+& '.venv/Scripts/python.exe' -m coding_agent.evaluation.live `
+  --project-root . `
+  --suite resume-v1 `
+  --confirm-paid-run
+```
 
-1. **冻结任务**：先用现有 3 个微任务试跑，再扩到约 12 个 Python 任务，覆盖 bug 修复、补测试、接口变更、多文件修改、命令失败恢复、长输出处理。记录任务版本、初始 commit、Python/依赖版本。先人工验证初始缺陷与 gold patch，gold 不提供给模型。
-2. **建立可信判题**：visible tests 用于 agent 调试；hidden tests 保存在 evaluator 控制的外部目录，不进入工具可见仓库。agent 结束后，evaluator 在全新 fixture 上应用 patch，恢复可信测试，再执行 hidden oracle。禁止直接信任 agent 修改过的测试、finish 文案或它报告的 exit code。当前 runner 的 `run_oracle` 尚未实现这一隔离协议，必须补齐后再报告真实成功率。
-3. **低预算试跑**：先只跑 baseline、单任务、一次；DeepSeek Flash 非思考模式，8 steps、单次输出最多 1024 tokens、累计已报告 token 停止阈值 12000、auxiliary calls=0。不自动扩任务或重跑失败任务。确认轨迹正常并获得付费批准后再扩到 3 个任务。
-4. **同条件消融**：baseline 与 full 使用同任务、同模型、同初始 commit、同限制，各一次；每个任务从干净副本开始，项目记忆 DB 独立，禁止先跑 full 污染 baseline。需要定位增益时再单独加 processor/repo-map/project-memory。没有结果不把 full 设为默认。
-5. **记忆专项**：同项目 Run A 形成记忆，Run B 测召回；不同项目 Run C 不得召回。分别测试有 remote、无 remote、linked worktree；测试过时/恶意/错误证据候选被拒、密钥不落库、DB 不可用的降级。A/B 可显式共享 DB，其余必须隔离。Run A/B 的真实回答质量本版未测。
-6. **导出报告并复查失败**：保存 events、patch、summary、独立 oracle 输出、模型返回 usage 和任务配置。人工分类定位失败：探索不足、错误编辑、测试伪通过、上下文丢失、预算停止、工具失败。报告样本量和分母，不能只选成功任务。
+没有 `--confirm-paid-run` 时，程序会在读取密钥和构造模型前退出。`.env` 被 Git 忽略，密钥不会写入配置、事件、artifact 或汇总报告。默认原始轨迹写入忽略目录 `runs/live-deepseek-resume-v1/`，脱敏报告写入 `benchmarks/deepseek-live-resume-v1.json`。
 
-## 指标与报告模板
+## 固定条件与预算语义
 
-| 指标 | 定义 | 本版真实模型结果 |
-|---|---|---|
-| Task success | 完成状态且可信 hidden oracle 通过 / 全部任务 | 未测 |
-| Token | 模型报告的 main + auxiliary input/output | 未测 |
-| Cost | 账单或注明日期/缓存命中价格的估算；未知不可记为 0 | 未测 |
-| Latency / steps | 中位数及逐任务原始值，包括失败任务 | 未测 |
-| Context / memory | 选择/省略量、候选拒绝量、跨 Run 召回证据 | 仅工程测试 |
+- 模型：`deepseek-flash`，thinking disabled；
+- 记忆模式：`baseline`；
+- 每个 Run 最多 8 次模型决策、每次最多 512 output tokens；
+- 每个 Run 按模型已报告 usage 在响应后执行 8000 total-token 停止判断；
+- auxiliary calls/tokens 均为 0；
+- 12 个任务各一次，完整 Run 不重试；底层 SDK 的 `max_retries=1` 会单独写入报告；
+- 用户授权上限为约 CNY 15，但它是人工授权，不是程序或供应商账单的硬上限。
 
-报告每行建议字段：`task_id, commit, model, preset, repeat, status, oracle_exit_code, success, steps, input_tokens, output_tokens, auxiliary_tokens, elapsed_ms, cost_usd, failure_category, artifacts_path`。
+最后一次响应可能让已报告 token 超过 8000；失败响应、SDK 重试和供应商侧计费也不一定完整反映在本地 usage 中。因此账户余额或供应商消费限制才是硬边界，`cost_usd` 在没有可信账单数据时保持 `null`。
 
-模型 temperature 不保证完全确定性；3 个小任务、每次一遍只适合 smoke test，不足以说明一般编码能力。不要宣传 token 节省百分比、成功率提升或真实成本，直到同条件数据支持它们。
+## 为什么判分可信
 
-## 预算边界
+12 个任务的顺序、prompt、初始文件、gold patch 和 oracle 都在付费运行前冻结。gold 只用于离线验证，不进入 Agent 工作区或 prompt。每个任务按以下顺序处理：
 
-本次 API 调用数为 0。将来 `--max-output-tokens` 限制每个请求的生成长度；`--max-steps` 限制 agent 步数；`--max-tokens` 在响应后按报告累计判断停止，输入开销和最后一个响应可使总量超过阈值。重试也可能产生请求，异常响应的 usage 目前不能完整结算。它们**不是账户账单硬上限**，真实费用需配合账户充值/消费限制和人工逐任务批准。
+1. Agent 在只包含初始文件和 visible tests 的独立 Git 仓库中运行；
+2. 导出统一 diff，计算 SHA-256；
+3. evaluator 创建第二个全新仓库并应用 diff；
+4. evaluator 只向第二个仓库注入外部 hidden tests；
+5. 普通任务运行 hidden pytest；“补回归测试”任务要求新增测试先通过正确实现、再杀死 evaluator 注入的 mutation。
 
-CLI 使用确定性 condenser/extractor，没有生产接线的 LLM auxiliary 客户端。辅助预算类是扩展边界，不应把非零辅助参数理解为启用 LLM；未来启用前必须补充单次输入/输出预留、失败调用计费与 hard-limit 测试。
+离线门禁逐个证明了全部 12 个初始版本不能通过、全部 12 个 gold patch 可以通过。Agent 删除或放宽 visible tests 不能删除 hidden tests。oracle 子进程会移除 `DEEPSEEK_API_KEY` 和 `OPENAI_API_KEY`。
+
+报告分别记录：
+
+- `protocol_completed`：Agent 是否正常发出 finish；
+- `patch_applied`：补丁是否能应用到干净副本；
+- `trusted_oracle_passed`：外部可信判题是否通过；
+- `task_success`：以上三项全部为真；
+- visible test 结果、状态、终止原因、steps、工具调用、延迟和 input/output/auxiliary tokens。
+
+## Canary 与失败处理
+
+第一个 `off-by-one` 任务同时作为连通性 canary。认证、网络传输、补丁/判分基础设施故障会停止整个 suite，避免继续付费；普通模型失败、step/token limit、错误补丁、未通过 hidden oracle 都保留在分母中并继续后续任务。任何失败任务都不会被替换，也不会为了改善结果而重跑。
+
+最终结果只能表述为“12-task Python microtask evaluation，single run per task”。它不是 SWE-bench，也不能外推为通用 Coding Agent 成功率。真实报告发布后，应同时给出准确的通过数/12、总 reported tokens、中位 steps/latency 和失败类别。
+
+## 离线复核
+
+付费前后均运行：
+
+```powershell
+$env:PYTHONPATH = 'src'
+& '.venv/Scripts/python.exe' -m pytest -q
+& '.venv/Scripts/ruff.exe' check .
+& '.venv/Scripts/ruff.exe' format --check .
+& '.venv/Scripts/mypy.exe' src
+openspec.cmd validate --all --strict
+git diff --check
+```
+
+完整报告还会固化 evaluator 版本、冻结 manifest hash、项目 Git commit、Python/关键包版本、模型、限制和 UTC 起止时间，便于把简历数字追溯到确切代码。

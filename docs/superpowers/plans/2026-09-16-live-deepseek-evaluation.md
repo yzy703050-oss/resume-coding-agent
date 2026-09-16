@@ -103,9 +103,7 @@ from dotenv import dotenv_values
 from pydantic import SecretStr
 
 
-def load_deepseek_key(
-    project_root: Path, environ: Mapping[str, str] | None = None
-) -> SecretStr:
+def load_deepseek_key(project_root: Path, environ: Mapping[str, str] | None = None) -> SecretStr:
     source = os.environ if environ is None else environ
     raw = source.get("DEEPSEEK_API_KEY")
     if not raw:
@@ -167,19 +165,23 @@ def test_resume_v1_has_exact_frozen_order() -> None:
         ROOT / "live_tasks" / "resume-v1",
         ROOT / "hidden_oracles" / "resume-v1",
     )
-    assert suite.task_ids == RESUME_V1_TASK_IDS == (
-        "off-by-one",
-        "change-contract",
-        "add-regression-test",
-        "empty-mean",
-        "parse-port",
-        "normalize-tags",
-        "category-totals",
-        "optional-display-name",
-        "json-omit-none",
-        "stable-priority",
-        "package-export",
-        "recover-failing-test",
+    assert (
+        suite.task_ids
+        == RESUME_V1_TASK_IDS
+        == (
+            "off-by-one",
+            "change-contract",
+            "add-regression-test",
+            "empty-mean",
+            "parse-port",
+            "normalize-tags",
+            "category-totals",
+            "optional-display-name",
+            "json-omit-none",
+            "stable-priority",
+            "package-export",
+            "recover-failing-test",
+        )
     )
     assert len(set(suite.task_ids)) == 12
 
@@ -308,9 +310,7 @@ def gold_patch(task: LiveTask, root: Path) -> tuple[Path, str]:
     return repo, git_diff(repo, base).patch
 
 
-def test_hidden_files_never_exist_in_agent_fixture(
-    tmp_path: Path, off_by_one: LiveTask
-) -> None:
+def test_hidden_files_never_exist_in_agent_fixture(tmp_path: Path, off_by_one: LiveTask) -> None:
     agent_repo = prepare_fixture(off_by_one.manifest, tmp_path / "agent")
     assert not any(path.name == "test_hidden.py" for path in agent_repo.rglob("*"))
 
@@ -337,9 +337,7 @@ def test_visible_test_tampering_does_not_remove_hidden_oracle(
     assert not result.trusted_oracle_passed
 
 
-def test_regression_test_must_kill_mutation(
-    tmp_path: Path, add_regression_test: LiveTask
-) -> None:
+def test_regression_test_must_kill_mutation(tmp_path: Path, add_regression_test: LiveTask) -> None:
     agent_repo = prepare_fixture(add_regression_test.manifest, tmp_path / "agent")
     base = current_head(agent_repo)
     (agent_repo / "test_mathutil.py").write_text("def test_vacuous():\n    assert True\n")
