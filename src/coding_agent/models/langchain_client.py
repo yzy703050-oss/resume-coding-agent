@@ -42,13 +42,23 @@ class LangChainModelClient:
         except APIError as error:
             raise ModelTransportError("LangChain model request failed") from error
         except (ValueError, TypeError) as error:
-            raise ModelFormatError("invalid model action response") from error
-        if (
-            not isinstance(result, AIMessage)
-            or result.invalid_tool_calls
-            or len(result.tool_calls) != 1
-        ):
-            raise ModelFormatError("model must return exactly one valid action")
+            raise ModelFormatError(
+                "invalid model action response", reason_code="sdk_parse_error"
+            ) from error
+        if not isinstance(result, AIMessage):
+            raise ModelFormatError(
+                "model returned a non-assistant message", reason_code="non_ai_message"
+            )
+        if result.invalid_tool_calls:
+            raise ModelFormatError(
+                "model returned an invalid tool call", reason_code="invalid_tool_call"
+            )
+        if not result.tool_calls:
+            raise ModelFormatError("model returned no tool call", reason_code="missing_tool_call")
+        if len(result.tool_calls) != 1:
+            raise ModelFormatError(
+                "model returned multiple tool calls", reason_code="multiple_tool_calls"
+            )
         call = result.tool_calls[0]
         try:
             name, arguments = call["name"], call["args"]
@@ -71,7 +81,9 @@ class LangChainModelClient:
                 raw_response_id=raw_id if isinstance(raw_id, str) else None,
             )
         except (KeyError, TypeError, ValueError, ValidationError) as error:
-            raise ModelFormatError("invalid model action response") from error
+            raise ModelFormatError(
+                "invalid model action response", reason_code="invalid_action_arguments"
+            ) from error
 
 
 def create_langchain_model(

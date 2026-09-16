@@ -68,4 +68,8 @@ The single approved paid suite completed without a canary infrastructure stop: 1
 
 Six patches passed their fresh-copy hidden oracle, but all 12 Runs failed the frozen protocol-completion requirement. Eight ended at the step limit and four at the reported-token budget; traces contain 30 valid model actions and 55 format errors, and no Run reached visible pytest. Final categories are six `agent_protocol_failed` and six `hidden_oracle_failed`. Median steps were 8 and median Agent elapsed time was 6,254.5 ms.
 
-Post-run inspection confirmed ordered task IDs, matching SHA-256 for all 12 patches, complete events/summary/patch/judge artifacts and `SECRET_LEAK_FOUND=false`. Raw artifacts remain ignored under `runs/`; the sanitized report is `benchmarks/deepseek-live-resume-v1.json`. The run was not retried. A compatibility fix and any second paid evaluation require separate approval and a new immutable report.
+Post-run inspection confirmed ordered task IDs, matching SHA-256 for all 12 patches, complete events/summary/patch/judge artifacts and `SECRET_LEAK_FOUND=false`. Raw artifacts remain ignored under `runs/`; the sanitized report is `benchmarks/deepseek-live-resume-v1.json`. The run was not retried.
+
+## 2026-09-16 offline protocol hardening
+
+After explicit approval for the previously discussed offline fixes, the model adapter now emits safe structured format-error reason codes; the graph records them and the next decision receives bounded corrective feedback without raw provider content. The system prompt no longer duplicates bound tool schemas. A valid `finish` takes precedence over the post-response reported-usage budget check; a non-finish action at budget still does not execute. Format errors remain charged against `max_steps`, and the frozen 8-step/8000-token/512-output limits are unchanged. This is not a rerun or a new success-rate claim. A second paid evaluation still requires new explicit approval and a new immutable report.

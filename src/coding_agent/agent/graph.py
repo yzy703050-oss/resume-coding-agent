@@ -67,10 +67,20 @@ def build_react_graph(
             response = model.complete(data["messages"], tools.schemas())
         except ModelFormatError as error:
             recorder.append(
-                "ModelStep", {"step": state.step_count, "ok": False, "error": "format_error"}
+                "ModelStep",
+                {
+                    "step": state.step_count,
+                    "ok": False,
+                    "error": "format_error",
+                    "reason_code": error.reason_code,
+                },
             )
             observation = Observation(
-                tool="model", ok=False, summary=str(error), data={}, error_code="format_error"
+                tool="model",
+                ok=False,
+                summary="Model response did not contain one valid action.",
+                data={"reason_code": error.reason_code},
+                error_code="format_error",
             )
             state.add_observation(observation)
             context.record_observation(observation)
@@ -86,11 +96,11 @@ def build_react_graph(
                 "usage": cast(JsonValue, response.usage.model_dump(mode="json")),
             },
         )
-        if budget_exhausted(state):
-            state.finish(RunStatus.BUDGET_LIMIT, "model budget reached")
-        elif isinstance(response.action, FinishAction):
+        if isinstance(response.action, FinishAction):
             state.finish_summary = response.action.summary
             state.finish(RunStatus.COMPLETED, "model finished")
+        elif budget_exhausted(state):
+            state.finish(RunStatus.BUDGET_LIMIT, "model budget reached")
         return {"run": state, "response": response}
 
     def after_decide(data: ReActGraphState) -> str:

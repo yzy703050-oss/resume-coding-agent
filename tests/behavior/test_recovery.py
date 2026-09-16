@@ -1,3 +1,4 @@
+import json
 import sys
 
 from conftest import finish, tool
@@ -48,3 +49,41 @@ def test_model_format_failure_can_be_corrected(agent_harness) -> None:
     assert any(
         item.error_code == "format_error" for item in harness.context_manager.working.recent_errors
     )
+
+
+def test_model_format_failure_gives_safe_next_step_feedback(agent_harness) -> None:
+    harness = agent_harness(
+        [ModelFormatError("provider-secret-payload", reason_code="missing_tool_call"), finish("ok")]
+    )
+    result = harness.runner.run(harness.state)
+    assert result.status is RunStatus.COMPLETED
+    second_messages = "\n".join(message.content for message in harness.model.received_messages[1])
+    assert "missing_tool_call" in second_messages
+    assert "exactly one" in second_messages
+    assert "provider-secret-payload" not in second_messages
+    assert harness.context_manager.working.recent_errors[-1].data == {
+        "reason_code": "missing_tool_call"
+    }
+    events = [
+        json.loads(line) for line in (harness.run_dir / "events.jsonl").read_text().splitlines()
+    ]
+    rejected = next(
+        event for event in events if event["type"] == "ModelStep" and not event["payload"]["ok"]
+    )
+    assert rejected["payload"]["reason_code"] == "missing_tool_call"
+    assert "provider-secret-payload" not in json.dumps(events)
+
+
+def test_bound_tool_schema_is_not_copied_into_system_prompt(agent_harness) -> None:
+    harness = agent_harness([finish("done")])
+    harness.runner.run(harness.state)
+    system_messages = [
+        message.content
+        for message in harness.model.received_messages[0]
+        if message.role == "system"
+    ]
+    assert len(system_messages) == 1
+    assert "exactly one" in system_messages[0]
+    assert '"input_schema"' not in system_messages[0]
+    assert '"properties"' not in system_messages[0]
+    assert "TOOLS:" not in system_messages[0]

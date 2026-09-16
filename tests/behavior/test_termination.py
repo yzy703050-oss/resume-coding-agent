@@ -3,7 +3,7 @@ import json
 import pytest
 from conftest import finish, tool
 
-from coding_agent.agent.actions import ModelUsage, ToolAction
+from coding_agent.agent.actions import FinishAction, ModelUsage, ToolAction
 from coding_agent.agent.state import RunLimits, RunStatus
 from coding_agent.models.base import ModelResponse
 
@@ -31,6 +31,16 @@ def test_budget_limit_uses_reported_usage(agent_harness) -> None:
     harness = agent_harness([response], RunLimits(max_steps=3, max_tokens=5))
     assert harness.runner.run(harness.state).status is RunStatus.BUDGET_LIMIT
     assert len(terminal_events(harness.run_dir)) == 1
+
+
+def test_valid_finish_is_recorded_even_when_its_usage_reaches_budget(agent_harness) -> None:
+    response = ModelResponse(action=FinishAction(summary="done"), usage=ModelUsage(input_tokens=6))
+    harness = agent_harness([response], RunLimits(max_steps=3, max_tokens=5))
+    result = harness.runner.run(harness.state)
+    assert result.status is RunStatus.COMPLETED
+    assert result.total_tokens == 6
+    assert len(harness.model.received_messages) == 1
+    assert [event["type"] for event in terminal_events(harness.run_dir)] == ["AgentFinished"]
 
 
 def test_cost_budget_limit_uses_first_reported_cost(agent_harness) -> None:

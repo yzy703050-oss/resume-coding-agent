@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import cast
 
 import httpx
 import pytest
@@ -7,7 +8,14 @@ from pydantic import SecretStr
 
 from coding_agent.config import RunConfig
 from coding_agent.context.builder import Message
-from coding_agent.models.base import ModelFormatError
+from coding_agent.models.base import FormatErrorReason, ModelFormatError
+
+
+def test_format_error_reason_code_is_fixed_vocabulary() -> None:
+    error = ModelFormatError(
+        "raw-provider-content", reason_code=cast(FormatErrorReason, "untrusted-category")
+    )
+    assert error.reason_code == "invalid_action"
 
 
 def body(calls: list[dict[str, object]]) -> dict[str, object]:
@@ -92,16 +100,16 @@ def test_framework_model_binds_real_schemas_and_maps_usage(provider: str) -> Non
 
 
 @pytest.mark.parametrize(
-    "calls",
+    ("calls", "reason_code"),
     [
-        [],
-        [call(), call()],
-        [call(arguments="{")],
-        [call(arguments="[]")],
-        [call(arguments='{"extra":1}')],
+        ([], "missing_tool_call"),
+        ([call(), call()], "multiple_tool_calls"),
+        ([call(arguments="{")], "invalid_tool_call"),
+        ([call(arguments="[]")], "invalid_action_arguments"),
+        ([call(arguments='{"extra":1}')], "invalid_action_arguments"),
     ],
 )
-def test_framework_model_rejects_missing_multiple_or_invalid_actions(calls) -> None:
+def test_framework_model_rejects_missing_multiple_or_invalid_actions(calls, reason_code) -> None:
     from coding_agent.models.langchain_client import create_langchain_model
 
     client = create_langchain_model(
@@ -118,8 +126,9 @@ def test_framework_model_rejects_missing_multiple_or_invalid_actions(calls) -> N
             transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body(calls)))
         ),
     )
-    with pytest.raises(ModelFormatError):
+    with pytest.raises(ModelFormatError) as exc_info:
         client.complete([Message("user", "fix")], [])
+    assert exc_info.value.reason_code == reason_code
 
 
 def test_deepseek_factory_defaults_to_non_thinking_for_required_tools() -> None:
