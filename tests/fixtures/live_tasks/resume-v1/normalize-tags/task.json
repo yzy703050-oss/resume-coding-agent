@@ -1,0 +1,12 @@
+{
+  "id": "normalize-tags",
+  "task": "Implement normalize_tags(): trim and lowercase strings, omit blank tags, and deduplicate while preserving first occurrence order.",
+  "setup_files": {
+    "tags.py": "def normalize_tags(tags):\n    return list(tags)\n",
+    "test_tags.py": "from tags import normalize_tags\n\ndef test_normalize_tags():\n    assert normalize_tags([' Python ', 'AI']) == ['python', 'ai']\n"
+  },
+  "oracle_command": ["python", "-m", "pytest", "-q"],
+  "gold_files": {
+    "tags.py": "def normalize_tags(tags):\n    result = []\n    seen = set()\n    for tag in tags:\n        normalized = tag.strip().lower()\n        if normalized and normalized not in seen:\n            seen.add(normalized)\n            result.append(normalized)\n    return result\n"
+  }
+}

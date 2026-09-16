@@ -1,0 +1,12 @@
+{
+  "id": "change-contract",
+  "task": "Change greet() so the complete name is uppercase while preserving the 'Hello ' prefix and the public function signature.",
+  "setup_files": {
+    "app.py": "def greet(name):\n    return f'Hello {name}'\n",
+    "test_app.py": "from app import greet\n\ndef test_greet_contract():\n    assert greet('Ada') == 'Hello ADA'\n"
+  },
+  "oracle_command": ["python", "-m", "pytest", "-q"],
+  "gold_files": {
+    "app.py": "def greet(name):\n    return f'Hello {name.upper()}'\n"
+  }
+}

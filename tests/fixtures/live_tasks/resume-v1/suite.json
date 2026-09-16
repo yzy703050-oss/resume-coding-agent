@@ -1,0 +1,17 @@
+{
+  "name": "resume-v1",
+  "tasks": [
+    "off-by-one",
+    "change-contract",
+    "add-regression-test",
+    "empty-mean",
+    "parse-port",
+    "normalize-tags",
+    "category-totals",
+    "optional-display-name",
+    "json-omit-none",
+    "stable-priority",
+    "package-export",
+    "recover-failing-test"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "optional-display-name",
+  "task": "Update display_name() to return 'Guest' for None, empty, or whitespace-only names and return the original nonblank name otherwise.",
+  "setup_files": {
+    "names.py": "def display_name(name):\n    return 'Guest' if name is None else name\n",
+    "test_names.py": "from names import display_name\n\ndef test_missing_name():\n    assert display_name(None) == 'Guest'\n"
+  },
+  "oracle_command": ["python", "-m", "pytest", "-q"],
+  "gold_files": {
+    "names.py": "def display_name(name):\n    if name is None or not name.strip():\n        return 'Guest'\n    return name\n"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "parse-port",
+  "task": "Harden parse_port(): accept only integer values or decimal digit strings representing ports 1 through 65535. Reject bool, float, non-decimal and out-of-range values with ValueError.",
+  "setup_files": {
+    "ports.py": "def parse_port(value):\n    return int(value)\n",
+    "test_ports.py": "from ports import parse_port\n\ndef test_parse_port_string():\n    assert parse_port('8080') == 8080\n"
+  },
+  "oracle_command": ["python", "-m", "pytest", "-q"],
+  "gold_files": {
+    "ports.py": "def parse_port(value):\n    if isinstance(value, bool):\n        raise ValueError('invalid port')\n    if isinstance(value, int):\n        port = value\n    elif isinstance(value, str) and value.isdecimal():\n        port = int(value)\n    else:\n        raise ValueError('invalid port')\n    if not 1 <= port <= 65535:\n        raise ValueError('invalid port')\n    return port\n"
+  }
+}

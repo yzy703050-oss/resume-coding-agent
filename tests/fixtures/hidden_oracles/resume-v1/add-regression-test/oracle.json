@@ -1,0 +1,7 @@
+{
+  "task_id": "add-regression-test",
+  "kind": "mutation",
+  "mutation_files": {
+    "mathutil.py": "def multiply(a, b):\n    return a + b\n"
+  }
+}

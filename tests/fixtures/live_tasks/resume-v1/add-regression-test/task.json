@@ -1,0 +1,11 @@
+{
+  "id": "add-regression-test",
+  "task": "Add a meaningful pytest regression test for multiply(). Do not change the multiply() implementation.",
+  "setup_files": {
+    "mathutil.py": "def multiply(a, b):\n    return a * b\n"
+  },
+  "oracle_command": ["python", "-m", "pytest", "-q"],
+  "gold_files": {
+    "test_mathutil.py": "from mathutil import multiply\n\ndef test_multiply():\n    assert multiply(6, 7) == 42\n"
+  }
+}

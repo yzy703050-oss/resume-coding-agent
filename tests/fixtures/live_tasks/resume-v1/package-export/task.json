@@ -1,0 +1,14 @@
+{
+  "id": "package-export",
+  "task": "Implement textutil.slugify() and export it from textutil. It must lowercase and trim text, collapse each run of non-alphanumeric characters to one hyphen, and strip edge hyphens.",
+  "setup_files": {
+    "textutil/__init__.py": "",
+    "textutil/slug.py": "def slugify(text):\n    raise NotImplementedError\n",
+    "test_textutil.py": "from textutil.slug import slugify\n\ndef test_slugify_words():\n    assert slugify('Hello World') == 'hello-world'\n"
+  },
+  "oracle_command": ["python", "-m", "pytest", "-q"],
+  "gold_files": {
+    "textutil/__init__.py": "from .slug import slugify\n\n__all__ = ['slugify']\n",
+    "textutil/slug.py": "import re\n\ndef slugify(text):\n    normalized = re.sub(r'[^a-z0-9]+', '-', text.strip().lower())\n    return normalized.strip('-')\n"
+  }
+}

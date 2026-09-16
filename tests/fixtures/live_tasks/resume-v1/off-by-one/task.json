@@ -1,0 +1,12 @@
+{
+  "id": "off-by-one",
+  "task": "Fix values() so it returns exactly n integers starting at zero. Preserve the public function signature.",
+  "setup_files": {
+    "app.py": "def values(n):\n    return list(range(n + 1))\n",
+    "test_app.py": "from app import values\n\ndef test_values():\n    assert values(3) == [0, 1, 2]\n"
+  },
+  "oracle_command": ["python", "-m", "pytest", "-q"],
+  "gold_files": {
+    "app.py": "def values(n):\n    return list(range(n))\n"
+  }
+}

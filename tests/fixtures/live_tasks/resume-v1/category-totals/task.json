@@ -1,0 +1,12 @@
+{
+  "id": "category-totals",
+  "task": "Fix category_totals() so repeated category amounts are summed and empty input returns an empty dict. Preserve the public signature.",
+  "setup_files": {
+    "totals.py": "def category_totals(rows):\n    return {category: amount for category, amount in rows}\n",
+    "test_totals.py": "from totals import category_totals\n\ndef test_category_totals():\n    assert category_totals([('food', 2), ('food', 3)]) == {'food': 5}\n"
+  },
+  "oracle_command": ["python", "-m", "pytest", "-q"],
+  "gold_files": {
+    "totals.py": "def category_totals(rows):\n    result = {}\n    for category, amount in rows:\n        result[category] = result.get(category, 0) + amount\n    return result\n"
+  }
+}

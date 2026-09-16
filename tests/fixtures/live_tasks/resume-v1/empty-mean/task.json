@@ -1,0 +1,12 @@
+{
+  "id": "empty-mean",
+  "task": "Update mean() to raise ValueError with message 'values must not be empty' for an empty input while preserving normal mean calculation.",
+  "setup_files": {
+    "statsutil.py": "def mean(values):\n    return sum(values) / len(values)\n",
+    "test_statsutil.py": "from statsutil import mean\n\ndef test_mean_values():\n    assert mean([2, 4, 6]) == 4\n"
+  },
+  "oracle_command": ["python", "-m", "pytest", "-q"],
+  "gold_files": {
+    "statsutil.py": "def mean(values):\n    if not values:\n        raise ValueError('values must not be empty')\n    return sum(values) / len(values)\n"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "recover-failing-test",
+  "task": "Fix count_words() so it counts words separated by arbitrary whitespace. Use the failing test to diagnose the smallest compatible implementation change.",
+  "setup_files": {
+    "counter.py": "def count_words(text):\n    return len(text.split(' '))\n",
+    "test_counter.py": "from counter import count_words\n\ndef test_multiple_spaces():\n    assert count_words('one   two') == 2\n"
+  },
+  "oracle_command": ["python", "-m", "pytest", "-q"],
+  "gold_files": {
+    "counter.py": "def count_words(text):\n    return len(text.split())\n"
+  }
+}

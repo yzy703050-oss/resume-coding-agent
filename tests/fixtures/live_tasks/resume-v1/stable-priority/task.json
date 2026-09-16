@@ -1,0 +1,12 @@
+{
+  "id": "stable-priority",
+  "task": "Fix order_by_priority() to sort descending by numeric priority while preserving input order for ties.",
+  "setup_files": {
+    "ordering.py": "def order_by_priority(items):\n    return sorted(items, key=lambda item: (-item['priority'], item['name']))\n",
+    "test_ordering.py": "from ordering import order_by_priority\n\ndef test_priority_order():\n    items = [{'name': 'low', 'priority': 1}, {'name': 'high', 'priority': 2}]\n    assert [item['name'] for item in order_by_priority(items)] == ['high', 'low']\n"
+  },
+  "oracle_command": ["python", "-m", "pytest", "-q"],
+  "gold_files": {
+    "ordering.py": "def order_by_priority(items):\n    return sorted(items, key=lambda item: item['priority'], reverse=True)\n"
+  }
+}
