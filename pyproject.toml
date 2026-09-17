@@ -16,6 +16,8 @@ dependencies = [
   "langchain-openai>=1.6,<2",
   "langchain-deepseek>=1.1,<2",
   "python-dotenv>=1.0,<2",
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
 ]
 
 [project.optional-dependencies]
@@ -28,6 +30,7 @@ dev = [
 
 [project.scripts]
 coding-agent = "coding_agent.cli:app"
+coding-agent-api = "coding_agent.api:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/coding_agent"]

@@ -108,6 +108,28 @@ The DeepSeek preset uses `https://api.deepseek.com`, `deepseek-flash`, and disab
 
 Enable V2 context sources explicitly with `--memory-preset full`. The CLI only composes deterministic condensers/extractors; auxiliary LLM interfaces are extension seams, not enabled by budget flags. Output and step limits reduce exposure, but the post-response token threshold is not a billing hard cap.
 
+## Local FastAPI wrapper
+
+The API runs the same `AgentRunner` and artifact finalizer as the CLI. It uses a separate, fixed DeepSeek baseline profile: **8 steps, 16,000 reported tokens per Run, and 1,024 output tokens per model response**. The frozen live-evaluation limits and earlier reports remain at 8,000/512. The 16,000-token check happens after model responses and is not a provider billing hard limit.
+
+Install the project, configure `DEEPSEEK_API_KEY` in the process environment or the ignored `.env` file in the directory where the server starts, then launch the local server:
+
+```powershell
+python -m pip install -e ".[dev]"
+coding-agent-api
+```
+
+In another terminal, submit a task against a **trusted, clean Git repository** and poll the returned `status_url`:
+
+```powershell
+$body = @{ repository = 'C:\path\to\clean-repo'; task = 'Fix the issue and run focused tests' } | ConvertTo-Json
+$run = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8000/runs' -ContentType 'application/json' -Body $body
+Invoke-RestMethod -Uri ('http://127.0.0.1:8000' + $run.status_url)
+Invoke-RestMethod -Uri ('http://127.0.0.1:8000/runs/' + $run.run_id + '/result')
+```
+
+`POST /runs` returns HTTP 202 and a Run ID. `GET /runs/{id}` reports queued/running/final state; once finished, `GET /runs/{id}/result` returns the existing `summary.json` and a patch URL, and `GET /runs/{id}/patch` downloads `patch.diff`. A second active task for the same repository returns HTTP 409. The API does not accept a key or spending limits in requests, does not persist its job index, and does not resume jobs after process restart. Run only one server worker, bind only to `127.0.0.1`, and never expose this host-command-executing API to an untrusted network.
+
 The frozen `resume-v1` evaluator adds a stronger path than the single-repository CLI: 12 tasks run once each, generated patches are transferred to fresh judge repositories, and evaluator-owned hidden tests are installed only after transfer. It requires an ignored root `.env` and an explicit paid-run flag:
 
 ```powershell
@@ -172,6 +194,6 @@ The implementation borrows the trade-offs, not source code or a framework-sized 
 
 ## Current boundaries
 
-Cross-process resumption of run-local working, episodic, or condensed memory remains out of scope. The release also excludes multi-agent orchestration, vector databases, embeddings, Docker/general sandboxing, FastAPI/web UI, and distributed execution. SQLite persists only curated project knowledge, never resumable Run state.
+Cross-process resumption of run-local working, episodic, or condensed memory remains out of scope. The release also excludes multi-agent orchestration, vector databases, embeddings, Docker/general sandboxing, a web UI, and distributed execution. The FastAPI wrapper is local-only and single-process; SQLite persists only curated project knowledge, never resumable Run state.
 
 Known limitations: exact-string edits are less flexible than patch/hunk formats; context uses approximate character rather than tokenizer budgets; only UTF-8 text is supported; and the local command policy reduces accidental shell misuse but cannot make untrusted repository tests safe.
