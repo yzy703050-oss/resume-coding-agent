@@ -1,5 +1,7 @@
 # Coding Agent with Hierarchical Context and Memory
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 A small, inspectable Coding Agent using **LangGraph** for a single-agent ReAct workflow and **LangChain** for model integration. It operates on a clean local Git repository and produces a patch, available test evidence and an auditable trajectory. Framework orchestration does not replace the project's tool policy, hierarchical memory or finalization boundaries.
 
 ## Why this repository is useful
@@ -144,7 +146,7 @@ The fixed live limits are DeepSeek Flash non-thinking, baseline memory, 8 decisi
 
 ## Resume release and evaluation status
 
-The trusted evaluator was run once on 2026-09-16. Under the frozen strict definition, complete task success was 0/12; 6/12 generated patches independently passed fresh-copy hidden tests, but no Run completed the finish protocol after repeated model format errors. The repository preserves this negative result rather than rerunning or selecting only successful patches. It is a 12-task microbenchmark, not a general coding success rate. See the [sanitized report](benchmarks/deepseek-live-resume-v1.json) and [interpretation](docs/EVALUATION.md). Generate the older read-only protocol with:
+The trusted `resume-v1` evaluator was run in three separately authorized rounds on 2026-09-16. Under the frozen strict definition, complete task success was 0/12, 6/12, and 5/12; generated patches independently passed fresh-copy hidden tests in 6/12, 10/12, and 11/12 tasks, respectively. Each round used the same 12-task manifest and ran every task once. These are microbenchmark results, not a general coding success rate. See the sanitized [v1](benchmarks/deepseek-live-resume-v1.json), [v2](benchmarks/deepseek-live-resume-v2.json), and [v3](benchmarks/deepseek-live-resume-v3.json) reports and [interpretation](docs/EVALUATION.md). Generate the older read-only protocol with:
 
 ```powershell
 python -m coding_agent.evaluation.plan
