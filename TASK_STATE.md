@@ -82,4 +82,10 @@ Post-run checks found matching task order and manifest hash versus v1, matching 
 
 ## Post-v2 offline single-action compatibility
 
-The approved bounded change selects only the first of multiple parseable non-finish tool calls, records ignored calls for audit and model-facing feedback, and continues to reject any batch containing `finish` or invalid calls. Reported usage on recoverable format errors now counts toward the Run budget; absent usage is marked unavailable rather than invented. This changes neither the historical v2 report nor the 8-step/8000-token live-evaluation limits. No third paid run was made.
+The approved bounded change selects only the first of multiple parseable non-finish tool calls, records ignored calls for audit and model-facing feedback, and continues to reject any batch containing `finish` or invalid calls. Reported usage on recoverable format errors now counts toward the Run budget; absent usage is marked unavailable rather than invented. This changes neither the historical v2 report nor the 8-step/8000-token live-evaluation limits. At this checkpoint no third paid run had yet been made.
+
+## 2026-09-16 separately approved third DeepSeek run
+
+The user approved a third paid run. It used commit `8cfc7209230e5fc6caab734efdebe8fcc01643cd`, the same frozen 12-task manifest/order and unchanged live limits, with new `v3` workspace/report paths. All 12 tasks were attempted once. Strict successes were 5/12, versus 6/12 in v2; 11/12 patches passed the fresh-copy hidden oracle, versus 10/12 in v2. Five Runs completed, seven reached the reported-token budget; six of those seven budget-limited patches passed the oracle. Across the suite: 59 valid model actions, zero format errors, 14 selected multi-call steps with 15 ignored extra calls, and 119,535 reported tokens (114,952 input, 4,583 output, zero auxiliary). Billing cost remains unavailable/null.
+
+Post-run checks confirmed matching task order and manifest hash versus v2, matching SHA-256 for all 12 patches, complete events/summary/patch/judge artifacts and one terminal event per task. The exact configured key was absent from 806 scanned v3 files. Reports v1/v2 remain unchanged; the sanitized v3 report is `benchmarks/deepseek-live-resume-v3.json` and raw artifacts are ignored under `runs/live-deepseek-resume-v3/`. No automatic rerun is planned.

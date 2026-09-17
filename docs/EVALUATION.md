@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-仓库已经完成两次独立的 `resume-v1` 真实模型微任务评测。两轮均固定使用 DeepSeek Flash 非思考模式、`baseline` preset 和同一批 12 个 Python 微任务；每轮的每个任务只运行一次，没有挑选成功样本或自动重跑失败任务。
+仓库已经完成三次独立的 `resume-v1` 真实模型微任务评测。三轮均固定使用 DeepSeek Flash 非思考模式、`baseline` preset 和同一批 12 个 Python 微任务；每轮的每个任务只运行一次，没有挑选成功样本或自动重跑失败任务。
 
 早期的 `benchmarks/baseline-scripted.json` 仍只是 3/3 脚本驱动工程演示：编辑动作和 token 值是预设的，不能用于宣传自主编码能力、真实费用或 token 节省。
 
@@ -50,7 +50,26 @@
 
 ## 第二轮之后的离线多工具兼容改动
 
-第二轮的 19 次格式错误均为 `multiple_tool_calls`。后续版本在多个可解析的普通工具调用中只选第一个，明确记录其余调用未执行；混入 `finish` 或存在无效工具调用时仍拒绝整次响应。格式错误的模型 usage 若可由 SDK 提供，会在下一步预算判断前累计；拿不到 usage 时事件明确标记不可用，不估算。此改动仅做模拟模型响应和本地测试，**没有产生第三轮 DeepSeek 真实评测结果**，上述 6/12 仍只对应第二轮代码。
+第二轮的 19 次格式错误均为 `multiple_tool_calls`。后续版本在多个可解析的普通工具调用中只选第一个，明确记录其余调用未执行；混入 `finish` 或存在无效工具调用时仍拒绝整次响应。格式错误的模型 usage 若可由 SDK 提供，会在下一步预算判断前累计；拿不到 usage 时事件明确标记不可用，不估算。该改动先通过模拟模型响应和本地测试，之后才进行下述第三轮付费评测；历史 6/12 仍只对应第二轮代码。
+
+## 2026-09-16 第三轮真实运行结果
+
+用户再次单独批准后，按 commit `8cfc7209230e5fc6caab734efdebe8fcc01643cd` 运行同一份冻结的 `resume-v1`；manifest SHA-256 和题目顺序均与第二轮相同。UTC 时间为 11:35:07–11:36:36，脱敏报告见 [`benchmarks/deepseek-live-resume-v3.json`](../benchmarks/deepseek-live-resume-v3.json)。
+
+| 指标 | 第三轮观测值 | 第二轮观测值 |
+|---|---:|---:|
+| 完整任务成功（finish + patch apply + hidden oracle） | 5/12 | 6/12 |
+| 补丁通过 hidden oracle | 11/12 | 10/12 |
+| 尝试任务 | 12/12，未提前停止 | 12/12，未提前停止 |
+| Agent 状态 | 5 completed；7 token budget limit | 6 completed；6 token budget limit |
+| 失败类别 | 6 agent protocol failed；1 hidden oracle failed | 4 agent protocol failed；2 hidden oracle failed |
+| Reported tokens | 119,535（input 114,952；output 4,583；auxiliary 0） | 117,826 |
+| 中位 steps / Agent elapsed | 5 / 4,921 ms | 6 / 5,557.5 ms |
+| 可信费用 | 未知，报告为 `null` | 未知，报告为 `null` |
+
+第三轮 59 次合法模型动作、**0 次格式错误**。其中 14 个多工具响应只选择首个普通工具，合计 15 个额外调用被明确忽略；混有 `finish` 的情况未在本轮出现。5 个 Run 执行 visible pytest，结果均通过。7 个未完成 Run 的最后响应均为工具动作，随后触及 token 预算；其中 6 个补丁实际上通过了隐藏判题。`package-export` 的补丁未通过隐藏判题。严格成功率比第二轮低 1 题，不能用“格式错误降为 0”替代完整任务成功率，也不能凭一次随机运行断定改动造成成功率升降。
+
+运行前完整离线门禁为 193 tests passed、Ruff、mypy、OpenSpec 严格校验通过。运行后复核了 12 个 patch SHA-256、events/summary/patch/judge 和终止事件；对第三轮新报告及运行目录中的 806 个文件扫描配置的精确密钥，`SECRET_LEAK_FOUND=false`。前两轮报告未被覆盖。第三轮不会自动重跑；任何后续付费测评仍需新的明确批准和新路径。
 
 ## 一次性付费命令
 
